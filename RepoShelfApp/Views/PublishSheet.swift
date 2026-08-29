@@ -104,19 +104,21 @@ struct PublishSheet: View {
     }
 
     private func visibilityButton(title: String, symbol: String, value: Bool) -> some View {
-        Button {
+        let selected = isPrivate == value
+        return Button {
             isPrivate = value
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: symbol).font(.system(size: 10))
                 Text(title).font(.system(size: 11.5, weight: .semibold))
             }
-            .foregroundStyle(isPrivate == value ? Color.white : Color.secondary)
+            .foregroundStyle(selected ? Color.white : Color.secondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 7)
+            .background(RoundedRectangle(cornerRadius: 7).fill(selected ? Theme.accent : Theme.surface))
+            .overlay(RoundedRectangle(cornerRadius: 7).stroke(selected ? Theme.accent : Theme.border))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(RoundedRectangle(cornerRadius: 7).fill(isPrivate == value ? Theme.accent : Theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 7).stroke(isPrivate == value ? Theme.accent : Theme.border))
     }
 }

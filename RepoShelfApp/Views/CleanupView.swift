@@ -55,6 +55,7 @@ struct CleanupView: View {
                             .foregroundStyle(Theme.danger)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 9)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .background(RoundedRectangle(cornerRadius: 8).fill(Theme.dangerBackground))
