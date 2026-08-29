@@ -41,6 +41,7 @@ struct ActivityView: View {
         case .remove: return "Removed local copy of \(event.subject)"
         case .switchAccount: return "Switched to \(event.subject)"
         case .addAccount: return "Added account \(event.subject)"
+        case .publish: return "Published \(event.subject)"
         }
     }
 
@@ -50,6 +51,7 @@ struct ActivityView: View {
         case .remove: return "xmark"
         case .switchAccount: return "arrow.left.arrow.right"
         case .addAccount: return "plus"
+        case .publish: return "arrow.up.to.line"
         }
     }
 
@@ -57,7 +59,7 @@ struct ActivityView: View {
         switch kind {
         case .clone: return Theme.ok
         case .remove: return Theme.danger
-        case .switchAccount, .addAccount: return Theme.accent
+        case .switchAccount, .addAccount, .publish: return Theme.accent
         }
     }
 
@@ -65,7 +67,7 @@ struct ActivityView: View {
         switch kind {
         case .clone: return Theme.okBackground
         case .remove: return Theme.dangerBackground
-        case .switchAccount, .addAccount: return Theme.chipBackground
+        case .switchAccount, .addAccount, .publish: return Theme.chipBackground
         }
     }
 }

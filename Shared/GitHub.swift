@@ -132,6 +132,61 @@ enum GitHub {
         }
     }
 
+    // MARK: Publish a local folder
+
+    static func isGitRepo(_ dir: URL) -> Bool {
+        FileManager.default.fileExists(atPath: dir.appendingPathComponent(".git").path)
+    }
+
+    /// Turns a local folder into a new GitHub repo: `git init` + commit if
+    /// needed, then `gh repo create --source --push`.
+    static func publish(
+        folder: URL,
+        owner: String,
+        name: String,
+        description: String,
+        isPrivate: Bool,
+        token: String,
+        identity: GitIdentity?
+    ) async throws {
+        let path = folder.path
+
+        if !isGitRepo(folder) {
+            try await Shell.require("git", ["-C", path, "init"])
+        }
+
+        if let identity, !identity.isBlank {
+            if !identity.name.isEmpty {
+                _ = try? await Shell.require("git", ["-C", path, "config", "user.name", identity.name])
+            }
+            if !identity.email.isEmpty {
+                _ = try? await Shell.require("git", ["-C", path, "config", "user.email", identity.email])
+            }
+        }
+
+        let gitPath = Shell.locate("git")
+        let hasHead = gitPath.flatMap { Shell.runSyncCapture($0, ["-C", path, "rev-parse", "--verify", "HEAD"]) } != nil
+        let dirty = gitPath.flatMap { Shell.runSyncCapture($0, ["-C", path, "status", "--porcelain"]) }?.isEmpty == false
+
+        if !hasHead || dirty {
+            _ = try await Shell.require("git", ["-C", path, "add", "-A"])
+            let staged = gitPath.flatMap { Shell.runSyncCapture($0, ["-C", path, "diff", "--cached", "--name-only"]) }
+            guard !(staged?.isEmpty ?? true) || hasHead else {
+                throw ShellError.failed(command: "git commit", status: 1, message: "the folder has no files to commit")
+            }
+            if !(staged?.isEmpty ?? true) {
+                try await Shell.require("git", ["-C", path, "commit", "-m", hasHead ? "Add files" : "Initial commit"])
+            }
+        }
+
+        var args = ["repo", "create", "\(owner)/\(name)", "--source", path, "--remote", "origin", "--push"]
+        args.append(isPrivate ? "--private" : "--public")
+        if !description.trimmingCharacters(in: .whitespaces).isEmpty {
+            args.append(contentsOf: ["--description", description])
+        }
+        try await Shell.require("gh", args, env: env(token: token))
+    }
+
     // MARK: Local scan
 
     private static let scanSkipDirs: Set<String> = [
