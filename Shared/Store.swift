@@ -31,6 +31,7 @@ final class Store: ObservableObject {
     @Published var activeLogin: String = ""
     @Published private(set) var remoteRepos: [String: [RemoteRepo]] = [:]   // login -> repos
     @Published private(set) var localRepos: [String: LocalRepo] = [:]        // nameWithOwner -> clone
+    @Published private(set) var looseFolders: [URL] = []                     // project-looking folders that aren't git checkouts
     @Published private(set) var detectedMeta: [String: RemoteRepo] = [:]     // slug -> gh metadata for clones outside the active list
     @Published private(set) var state = RepoShelfState()
 
@@ -191,11 +192,27 @@ final class Store: ObservableObject {
         isScanning = true
         defer { isScanning = false }
         let roots = scanRoots
-        let clones = await Task.detached { GitHub.scanClones(roots: roots) }.value
+        let result = await Task.detached { GitHub.scan(roots: roots) }.value
         var map: [String: LocalRepo] = [:]
-        for clone in clones { map[clone.nameWithOwner] = clone }
+        for clone in result.clones { map[clone.nameWithOwner] = clone }
         localRepos = map
+        looseFolders = result.looseDirs
         await enrichDetectedClones()
+    }
+
+    /// Folders that share a name with one of your repos but aren't git
+    /// checkouts — i.e. a copy of the project that was never `git clone`d.
+    var unclonedRepoFolders: [(name: String, url: URL)] {
+        let repoNames = Set(remoteRepos.values.flatMap { $0 }.map { $0.name.lowercased() })
+        let clonedNames = Set(localRepos.keys.compactMap { $0.split(separator: "/").last?.lowercased() })
+        var seen = Set<String>()
+        return looseFolders
+            .filter { url in
+                let n = url.lastPathComponent.lowercased()
+                return repoNames.contains(n) && !clonedNames.contains(n) && seen.insert(n).inserted
+            }
+            .map { (name: $0.lastPathComponent, url: $0) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     /// For clones whose `owner/repo` isn't in any loaded `gh repo list`, pull

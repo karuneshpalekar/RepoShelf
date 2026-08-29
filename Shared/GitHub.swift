@@ -140,28 +140,47 @@ enum GitHub {
         ".gradle", ".venv", "venv", "__pycache__", "Applications",
     ]
 
+    private static let homeSkipDirs: Set<String> = [
+        "Library", "Applications", "Desktop", "Documents", "Downloads",
+        "Movies", "Music", "Pictures", "Public", "Sites",
+        "Parallels", "Creative Cloud Files", "Pictures Library.photoslibrary",
+    ]
+
+    struct ScanResult {
+        var clones: [LocalRepo]
+        /// Top-level folders inside the scan roots that are NOT git checkouts
+        /// — used to flag "you have a folder for this repo but never cloned it".
+        var looseDirs: [URL]
+    }
+
     /// Recursively finds git working copies under any of `roots` (bounded
     /// depth), keyed by the `owner/repo` parsed from each clone's `origin`
     /// remote — so a repo maps to its GitHub identity regardless of where it
     /// sits on disk or what the folder is called. Clones without a GitHub
     /// origin are kept under `local/<folder>`.
-    static func scanClones(roots: [URL], maxDepth: Int = 4) -> [LocalRepo] {
+    static func scan(roots: [URL], maxDepth: Int = 4) -> ScanResult {
         let fm = FileManager.default
         let gitPath = Shell.locate("git")
         var byPath: [String: LocalRepo] = [:]
+        var loose: [URL] = []
 
-        func walk(_ dir: URL, depth: Int) {
-            if fm.fileExists(atPath: dir.appendingPathComponent(".git").path) {
-                let origin = originSlug(at: dir, gitPath: gitPath)
-                byPath[dir.path] = LocalRepo(
-                    nameWithOwner: origin.slug ?? "local/\(dir.lastPathComponent)",
-                    path: dir,
-                    sizeBytes: directorySize(dir),
-                    originSlug: origin.slug,
-                    originURL: origin.url
-                )
-                return // don't descend into a repo
-            }
+        func isRepo(_ dir: URL) -> Bool {
+            fm.fileExists(atPath: dir.appendingPathComponent(".git").path)
+        }
+
+        func record(_ dir: URL) {
+            let origin = originSlug(at: dir, gitPath: gitPath)
+            byPath[dir.path] = LocalRepo(
+                nameWithOwner: origin.slug ?? "local/\(dir.lastPathComponent)",
+                path: dir,
+                sizeBytes: directorySize(dir),
+                originSlug: origin.slug,
+                originURL: origin.url
+            )
+        }
+
+        func walk(_ dir: URL, depth: Int, collectLoose: Bool) {
+            if isRepo(dir) { record(dir); return } // don't descend into a repo
             guard depth < maxDepth,
                   let children = try? fm.contentsOfDirectory(
                       at: dir, includingPropertiesForKeys: [.isDirectoryKey],
@@ -172,7 +191,8 @@ enum GitHub {
                 guard (try? child.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
                       !scanSkipDirs.contains(child.lastPathComponent)
                 else { continue }
-                walk(child, depth: depth + 1)
+                if collectLoose, !isRepo(child) { loose.append(child) }
+                walk(child, depth: depth + 1, collectLoose: false)
             }
         }
 
@@ -180,7 +200,24 @@ enum GitHub {
         for root in roots {
             let standardized = root.standardizedFileURL
             guard fm.fileExists(atPath: standardized.path), seenRoots.insert(standardized.path).inserted else { continue }
-            walk(standardized, depth: 0)
+            walk(standardized, depth: 0, collectLoose: true)
+        }
+
+        // Also pick up repos sitting directly in the home folder (shallow —
+        // don't recurse the whole home directory).
+        let home = fm.homeDirectoryForCurrentUser.standardizedFileURL
+        if seenRoots.insert(home.path).inserted,
+           let children = try? fm.contentsOfDirectory(
+               at: home, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]
+           ) {
+            for child in children {
+                guard (try? child.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
+                      !homeSkipDirs.contains(child.lastPathComponent),
+                      !scanSkipDirs.contains(child.lastPathComponent),
+                      isRepo(child)
+                else { continue }
+                record(child)
+            }
         }
 
         // Collapse duplicate checkouts of the same repo, keeping the biggest.
@@ -189,7 +226,7 @@ enum GitHub {
             if let existing = byKey[repo.nameWithOwner], existing.sizeBytes >= repo.sizeBytes { continue }
             byKey[repo.nameWithOwner] = repo
         }
-        return Array(byKey.values)
+        return ScanResult(clones: Array(byKey.values), looseDirs: loose)
     }
 
     private static func originSlug(at dir: URL, gitPath: String?) -> (slug: String?, url: String?) {
