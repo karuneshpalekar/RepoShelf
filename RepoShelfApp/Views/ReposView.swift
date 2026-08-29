@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct ReposView: View {
     @EnvironmentObject private var store: Store
@@ -102,6 +103,12 @@ struct ReposView: View {
 
             if let message = store.errorMessage {
                 ErrorBanner(message: message)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 6)
+            }
+
+            if !isSearching && recentOnly && !store.unclonedRepoFolders.isEmpty {
+                UnclonedFoldersCard(folders: store.unclonedRepoFolders)
                     .padding(.horizontal, 14)
                     .padding(.bottom, 6)
             }
@@ -264,6 +271,56 @@ private struct RepoRowView: View {
         .padding(.vertical, 10)
         .background(RoundedRectangle(cornerRadius: 9).fill(Theme.surface))
         .overlay(RoundedRectangle(cornerRadius: 9).stroke(row.isCloned ? Theme.okBorder : Theme.borderSoft))
+    }
+}
+
+/// Folders that match a repo name but aren't git checkouts.
+private struct UnclonedFoldersCard: View {
+    let folders: [(name: String, url: URL)]
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { expanded.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "questionmark.folder").font(.system(size: 11))
+                    Text("\(folders.count) folder\(folders.count == 1 ? "" : "s") match your repos but aren't git clones")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 0)
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.system(size: 9, weight: .bold))
+                }
+                .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+
+            if expanded {
+                ForEach(folders, id: \.url) { folder in
+                    HStack(spacing: 6) {
+                        Text(folder.name).font(.system(size: 10.5, weight: .medium))
+                        Text(folder.url.deletingLastPathComponent().path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+                            .font(.system(size: 9.5)).foregroundStyle(.tertiary)
+                            .lineLimit(1).truncationMode(.head)
+                        Spacer(minLength: 0)
+                        Button {
+                            NSWorkspace.shared.activateFileViewerSelecting([folder.url])
+                        } label: {
+                            Image(systemName: "folder").font(.system(size: 10))
+                        }
+                        .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                    }
+                }
+                Text("These are plain copies — `git init` in place, or clone fresh and delete the copy.")
+                    .font(.system(size: 9.5)).foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(9)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.surfaceSecondary))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.borderSoft))
     }
 }
 
