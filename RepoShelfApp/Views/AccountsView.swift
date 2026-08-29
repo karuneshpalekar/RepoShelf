@@ -20,6 +20,7 @@ struct AccountsView: View {
                     .foregroundStyle(Theme.accent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 9)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .background(
