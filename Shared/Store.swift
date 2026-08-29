@@ -399,6 +399,49 @@ final class Store: ObservableObject {
         }
     }
 
+    // MARK: Publish a local folder to GitHub
+
+    /// Git working copies found on disk that have no GitHub origin.
+    var localOnlyRepos: [LocalRepo] {
+        localRepos.values.filter { $0.isLocalOnly }
+            .sorted { $0.path.lastPathComponent.localizedCaseInsensitiveCompare($1.path.lastPathComponent) == .orderedAscending }
+    }
+
+    func folderIsGitRepo(_ url: URL) -> Bool { GitHub.isGitRepo(url) }
+
+    var publishingPaths: Set<String> = []
+
+    func publish(folder: URL, owner: String, name: String, description: String, isPrivate: Bool) {
+        let key = folder.path
+        guard !publishingPaths.contains(key) else { return }
+        publishingPaths.insert(key)
+        Task {
+            defer { publishingPaths.remove(key) }
+            do {
+                let token = try await token(for: owner)
+                try await GitHub.publish(
+                    folder: folder, owner: owner, name: name,
+                    description: description, isPrivate: isPrivate,
+                    token: token, identity: state.identities[owner]
+                )
+                // Make sure the freshly published folder is scanned.
+                let display = folder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+                let covered = scanRoots.contains { folder.path.hasPrefix($0.standardizedFileURL.path) }
+                if !covered, !state.scanRootPaths.contains(display) {
+                    state.scanRootPaths.append(display)
+                }
+                persist()
+                reposLoadedFor.remove(owner)
+                await loadReposIfNeeded(for: owner, force: true)
+                await scanLocal()
+                log(.publish, "\(owner)/\(name)", isPrivate ? "private" : "public")
+                errorMessage = nil
+            } catch {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
+        }
+    }
+
     // MARK: Add account
 
     func openTerminalForLogin() {

@@ -2,6 +2,7 @@ import SwiftUI
 
 enum ShelfTab: String, CaseIterable, Identifiable {
     case repos = "Repos"
+    case publish = "Publish"
     case cleanup = "Cleanup"
     case accounts = "Accounts"
     case activity = "Activity"
@@ -12,12 +13,14 @@ enum ActiveSheet: Identifiable, Equatable {
     case clone(String)
     case addRepo
     case addAccount
+    case publish(String)
 
     var id: String {
         switch self {
         case .clone(let slug): return "clone:\(slug)"
         case .addRepo: return "addRepo"
         case .addAccount: return "addAccount"
+        case .publish(let path): return "publish:\(path)"
         }
     }
 }
@@ -202,6 +205,8 @@ struct ContentView: View {
                 onClone: { row in activeSheet = .clone(row.id) },
                 onAddRepo: { activeSheet = .addRepo }
             )
+        case .publish:
+            PublishView(onPublish: { activeSheet = .publish($0.path) })
         case .cleanup:
             CleanupView()
         case .accounts:
@@ -263,6 +268,8 @@ struct ContentView: View {
                     AddRepoSheet { self.activeSheet = nil }
                 case .addAccount:
                     AddAccountSheet { self.activeSheet = nil }
+                case .publish(let path):
+                    PublishSheet(folderPath: path) { self.activeSheet = nil }
                 }
             }
             .padding(22)

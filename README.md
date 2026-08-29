@@ -34,6 +34,12 @@ config.
   show size + strategy and get Open-in-VS-Code / Reveal-in-Finder /
   Delete buttons. **+** adds a repo by URL or `owner/name` for anything
   outside your own list (orgs, forks, collaborators).
+- **Publish tab** — put a local folder on GitHub. Lists git working
+  copies that have no remote; **Choose a folder…** takes any folder
+  (including one that was never a git repo). The sheet asks for repo
+  name, account, description, and **Private / Public**, then runs
+  `git init` (if needed) + first commit + `gh repo create --source
+  --push`.
 - **Cleanup tab** — cloned repos (any account) you haven't opened in 3+
   weeks, with per-repo Remove and a "remove all / reclaim X" button.
 - **Accounts tab** — every account `gh` knows, which is active, and an

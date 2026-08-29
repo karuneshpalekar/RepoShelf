@@ -57,7 +57,7 @@ enum CloneStrategy: String, Codable, CaseIterable, Identifiable {
 
 struct ActivityEvent: Codable, Identifiable {
     enum Kind: String, Codable {
-        case clone, remove, switchAccount, addAccount
+        case clone, remove, switchAccount, addAccount, publish
     }
 
     var id: UUID = UUID()
