@@ -134,33 +134,70 @@ enum GitHub {
 
     // MARK: Local scan
 
-    /// Finds clones two levels under `root` (root/<account>/<repo>/.git).
-    static func scanClones(root: URL) -> [LocalRepo] {
+    private static let scanSkipDirs: Set<String> = [
+        "node_modules", "Library", ".Trash", "Pods", "Carthage", "vendor",
+        ".build", "DerivedData", "dist", "build", ".next", "target",
+        ".gradle", ".venv", "venv", "__pycache__", "Applications",
+    ]
+
+    /// Recursively finds git working copies under any of `roots` (bounded
+    /// depth), keyed by the `owner/repo` parsed from each clone's `origin`
+    /// remote — so a repo maps to its GitHub identity regardless of where it
+    /// sits on disk or what the folder is called. Clones without a GitHub
+    /// origin are kept under `local/<folder>`.
+    static func scanClones(roots: [URL], maxDepth: Int = 4) -> [LocalRepo] {
         let fm = FileManager.default
-        guard let accountDirs = try? fm.contentsOfDirectory(
-            at: root, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]
-        ) else { return [] }
+        let gitPath = Shell.locate("git")
+        var byPath: [String: LocalRepo] = [:]
 
-        var found: [LocalRepo] = []
-        for accountDir in accountDirs {
-            guard (try? accountDir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
-                  let repoDirs = try? fm.contentsOfDirectory(
-                      at: accountDir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]
+        func walk(_ dir: URL, depth: Int) {
+            if fm.fileExists(atPath: dir.appendingPathComponent(".git").path) {
+                let origin = originSlug(at: dir, gitPath: gitPath)
+                byPath[dir.path] = LocalRepo(
+                    nameWithOwner: origin.slug ?? "local/\(dir.lastPathComponent)",
+                    path: dir,
+                    sizeBytes: directorySize(dir),
+                    originSlug: origin.slug,
+                    originURL: origin.url
+                )
+                return // don't descend into a repo
+            }
+            guard depth < maxDepth,
+                  let children = try? fm.contentsOfDirectory(
+                      at: dir, includingPropertiesForKeys: [.isDirectoryKey],
+                      options: [.skipsHiddenFiles, .skipsPackageDescendants]
                   )
-            else { continue }
-
-            for repoDir in repoDirs {
-                let gitDir = repoDir.appendingPathComponent(".git")
-                guard fm.fileExists(atPath: gitDir.path) else { continue }
-                let nameWithOwner = "\(accountDir.lastPathComponent)/\(repoDir.lastPathComponent)"
-                found.append(LocalRepo(
-                    nameWithOwner: nameWithOwner,
-                    path: repoDir,
-                    sizeBytes: directorySize(repoDir)
-                ))
+            else { return }
+            for child in children {
+                guard (try? child.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
+                      !scanSkipDirs.contains(child.lastPathComponent)
+                else { continue }
+                walk(child, depth: depth + 1)
             }
         }
-        return found
+
+        var seenRoots = Set<String>()
+        for root in roots {
+            let standardized = root.standardizedFileURL
+            guard fm.fileExists(atPath: standardized.path), seenRoots.insert(standardized.path).inserted else { continue }
+            walk(standardized, depth: 0)
+        }
+
+        // Collapse duplicate checkouts of the same repo, keeping the biggest.
+        var byKey: [String: LocalRepo] = [:]
+        for repo in byPath.values {
+            if let existing = byKey[repo.nameWithOwner], existing.sizeBytes >= repo.sizeBytes { continue }
+            byKey[repo.nameWithOwner] = repo
+        }
+        return Array(byKey.values)
+    }
+
+    private static func originSlug(at dir: URL, gitPath: String?) -> (slug: String?, url: String?) {
+        guard let gitPath,
+              let url = Shell.runSyncCapture(gitPath, ["-C", dir.path, "config", "--get", "remote.origin.url"]),
+              !url.isEmpty
+        else { return (nil, nil) }
+        return (parseSlug(url), url)
     }
 
     static func directorySize(_ url: URL) -> Int64 {

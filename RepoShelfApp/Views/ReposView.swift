@@ -25,16 +25,18 @@ struct ReposView: View {
             || row.remote.nameWithOwner.lowercased().contains(q)
     }
 
-    /// All rows for the active account matching the search + on-disk filter.
+    /// Recent view works off everything (incl. clones detected on disk);
+    /// browse-all works off just the active account's list.
     private var matchingRows: [RepoRow] {
-        store.rows.filter { matchesQuery($0) && (!clonedOnly || $0.isCloned) }
+        let source = (!recentOnly && !isSearching) ? store.browseRows : store.rows
+        return source.filter { matchesQuery($0) && (!clonedOnly || $0.isCloned) }
     }
 
-    /// Rows the user has interacted with, most-recent first.
+    /// Rows the user has interacted with (or that are on disk), most-recent first.
     private var recentRows: [RepoRow] {
         let keys = store.interactedRepoKeys
         return matchingRows
-            .filter { keys.contains($0.id) }
+            .filter { keys.contains($0.id) || $0.isCloned }
             .sorted { lhs, rhs in
                 let l = store.state.lastOpened[lhs.id] ?? .distantPast
                 let r = store.state.lastOpened[rhs.id] ?? .distantPast
@@ -53,7 +55,7 @@ struct ReposView: View {
     }
 
     private var hiddenCount: Int {
-        max(0, matchingRows.count - recentRows.count)
+        max(0, store.browseRows.count - recentRows.count)
     }
 
     var body: some View {
@@ -181,18 +183,26 @@ private struct RepoRowView: View {
     let row: RepoRow
     let onClone: () -> Void
 
+    private var rowTag: String? {
+        if row.isLocalOnly { return "LOCAL ONLY" }
+        if row.isDetected { return "DETECTED" }
+        if row.remote.isManuallyAdded { return "ADDED" }
+        return nil
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(row.name)
+                    Text(row.isLocalOnly || row.isDetected ? row.remote.nameWithOwner : row.name)
                         .font(.system(size: 12.5, weight: .semibold))
                         .lineLimit(1)
+                        .truncationMode(.middle)
                     if row.remote.isPrivate {
                         Image(systemName: "lock.fill").font(.system(size: 9)).foregroundStyle(.tertiary)
                     }
-                    if row.remote.isManuallyAdded {
-                        Text("ADDED")
+                    if let tag = rowTag {
+                        Text(tag)
                             .font(.system(size: 8.5, weight: .bold))
                             .foregroundStyle(.tertiary)
                             .padding(.horizontal, 4).padding(.vertical, 1)
@@ -200,8 +210,6 @@ private struct RepoRowView: View {
                     }
                 }
                 HStack(spacing: 8) {
-                    Text(row.remote.pushedAt == nil ? "—" : "pushed \(Formatting.relative(row.remote.pushedAt))")
-                        .foregroundStyle(.secondary)
                     if row.isCloned {
                         HStack(spacing: 3) {
                             Image(systemName: "checkmark").font(.system(size: 8, weight: .bold))
@@ -209,9 +217,20 @@ private struct RepoRowView: View {
                         }
                         .foregroundStyle(Theme.ok)
                         .fontWeight(.semibold)
+                    } else {
+                        Text(row.remote.pushedAt == nil ? "—" : "pushed \(Formatting.relative(row.remote.pushedAt))")
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .font(.system(size: 10.5))
+
+                if row.isCloned, let path = row.pathText {
+                    Text(path)
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
             }
 
             Spacer(minLength: 0)
@@ -228,7 +247,7 @@ private struct RepoRowView: View {
                         store.remove(row.id)
                     }
                 }
-            } else {
+            } else if !row.isLocalOnly {
                 Button(action: onClone) {
                     HStack(spacing: 5) {
                         Image(systemName: "arrow.down.to.line").font(.system(size: 10, weight: .bold))
