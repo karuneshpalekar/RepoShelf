@@ -31,6 +31,7 @@ struct ContentView: View {
     @State private var query = ""
     @State private var clonedOnly = false
     @State private var showAccountMenu = false
+    @State private var showSettings = false
     @State private var activeSheet: ActiveSheet?
 
     private var appearance: AppearanceMode {
@@ -94,6 +95,21 @@ struct ContentView: View {
             .help("Appearance: \(appearance.label)")
 
             Button {
+                showSettings.toggle()
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 12))
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+            .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
+            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
+            .help("Scan folders & settings")
+            .popover(isPresented: $showSettings, arrowEdge: .bottom) {
+                SettingsPopover().environmentObject(store)
+            }
+
+            Button {
                 panelState.isCollapsed = true
             } label: {
                 Image(systemName: "arrow.down.right.and.arrow.up.left")
@@ -133,10 +149,11 @@ struct ContentView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
+            .frame(maxWidth: 128)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
-        .fixedSize()
+        .fixedSize(horizontal: false, vertical: true)
         .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
         .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
     }

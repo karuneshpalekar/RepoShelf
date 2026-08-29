@@ -70,6 +70,9 @@ struct ActivityEvent: Codable, Identifiable {
 /// Persisted app state (JSON at ~/Library/Application Support/RepoShelf/state.json).
 struct RepoShelfState: Codable {
     var workspaceRootPath: String = SharedStorage.defaultWorkspaceRoot.path
+    /// Folders scanned for existing clones. Empty means "resolve defaults";
+    /// first launch fills it with the default candidates that exist.
+    var scanRootPaths: [String] = []
     /// login -> commit identity
     var identities: [String: GitIdentity] = [:]
     /// repo nameWithOwner -> strategy it was cloned with
@@ -106,13 +109,22 @@ struct RemoteRepo: Identifiable, Equatable {
     var diskUsageKB: Int
     /// True when the user added this manually rather than it coming from the list.
     var isManuallyAdded: Bool = false
+    /// True when this row exists only because a clone was found on disk that
+    /// isn't in the active account's `gh repo list`.
+    var isDetectedLocal: Bool = false
 }
 
-/// A clone found on disk under the workspace root.
+/// A clone found on disk in one of the scanned folders.
 struct LocalRepo {
+    /// `owner/repo` parsed from the clone's `origin` remote, or
+    /// `local/<folder>` when there's no GitHub origin.
     var nameWithOwner: String
     var path: URL
     var sizeBytes: Int64
+    var originSlug: String?
+    var originURL: String?
+
+    var isLocalOnly: Bool { originSlug == nil }
 }
 
 /// A GitHub account known to `gh`.

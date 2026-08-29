@@ -121,6 +121,32 @@ enum Shell {
         }
     }
 
+    /// Synchronous stdout capture — for use from an already-detached scan
+    /// where spinning up async continuations per directory would be wasteful.
+    /// Returns nil on launch failure or non-zero exit.
+    static func runSyncCapture(_ executablePath: String, _ arguments: [String], cwd: URL? = nil) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executablePath)
+        process.arguments = arguments
+        if let cwd { process.currentDirectoryURL = cwd }
+        var environment = ProcessInfo.processInfo.environment
+        environment["PATH"] = childPATH
+        environment["GIT_TERMINAL_PROMPT"] = "0"
+        process.environment = environment
+        let outPipe = Pipe()
+        process.standardOutput = outPipe
+        process.standardError = Pipe()
+        do {
+            try process.run()
+        } catch {
+            return nil
+        }
+        let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else { return nil }
+        return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Runs a located tool by name, throwing if it isn't installed or exits non-zero.
     @discardableResult
     static func require(

@@ -14,6 +14,15 @@ struct RepoRow: Identifiable {
     var isCloned: Bool { local != nil }
     var name: String { remote.name }
     var sizeText: String? { local.map { Formatting.size(bytes: $0.sizeBytes) } }
+
+    /// Found on disk but not in the active account's repo list.
+    var isDetected: Bool { remote.isDetectedLocal }
+    /// A git working copy with no GitHub origin — can't be re-cloned.
+    var isLocalOnly: Bool { local?.isLocalOnly ?? remote.nameWithOwner.hasPrefix("local/") }
+    /// Where the clone lives, shortened with ~, when on disk.
+    var pathText: String? {
+        local.map { $0.path.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") }
+    }
 }
 
 @MainActor
@@ -22,6 +31,7 @@ final class Store: ObservableObject {
     @Published var activeLogin: String = ""
     @Published private(set) var remoteRepos: [String: [RemoteRepo]] = [:]   // login -> repos
     @Published private(set) var localRepos: [String: LocalRepo] = [:]        // nameWithOwner -> clone
+    @Published private(set) var detectedMeta: [String: RemoteRepo] = [:]     // slug -> gh metadata for clones outside the active list
     @Published private(set) var state = RepoShelfState()
 
     @Published var isLoadingRepos = false
@@ -45,9 +55,23 @@ final class Store: ObservableObject {
     // MARK: Persistence
 
     private func load() {
-        guard let data = try? Data(contentsOf: SharedStorage.stateURL),
-              let decoded = try? JSONDecoder().decode(RepoShelfState.self, from: data) else { return }
-        state = decoded
+        if let data = try? Data(contentsOf: SharedStorage.stateURL),
+           let decoded = try? JSONDecoder().decode(RepoShelfState.self, from: data) {
+            state = decoded
+        }
+        if state.scanRootPaths.isEmpty {
+            state.scanRootPaths = SharedStorage.defaultScanRoots
+                .filter { FileManager.default.fileExists(atPath: $0.path) }
+                .map { $0.path.replacingOccurrences(of: NSHomeDirectory(), with: "~") }
+        }
+        // Drop duplicates that differ only by case (case-insensitive FS).
+        var seen = Set<String>()
+        let deduped = state.scanRootPaths.filter {
+            let key = ($0 as NSString).expandingTildeInPath.lowercased()
+            return seen.insert(key).inserted
+        }
+        if deduped != state.scanRootPaths { state.scanRootPaths = deduped }
+        persist()
     }
 
     private func persist() {
@@ -136,23 +160,76 @@ final class Store: ObservableObject {
         }
     }
 
+    // MARK: Scan folders
+
+    /// Folders actually scanned — the user's list plus the workspace root
+    /// (so freshly cloned repos are re-discovered), deduped.
+    var scanRoots: [URL] {
+        var urls = state.scanRootPaths.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+        urls.append(state.workspaceRoot)
+        var seen = Set<String>()
+        return urls.filter { seen.insert($0.standardizedFileURL.path.lowercased()).inserted }
+    }
+
+    func addScanRoot(_ url: URL) {
+        let display = url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+        guard !state.scanRootPaths.contains(display), !state.scanRootPaths.contains(url.path) else { return }
+        state.scanRootPaths.append(display)
+        persist()
+        Task { await scanLocal() }
+    }
+
+    func removeScanRoot(_ path: String) {
+        state.scanRootPaths.removeAll { $0 == path }
+        persist()
+        Task { await scanLocal() }
+    }
+
     // MARK: Local scan
 
     func scanLocal() async {
         isScanning = true
         defer { isScanning = false }
-        let root = state.workspaceRoot
-        let clones = await Task.detached { GitHub.scanClones(root: root) }.value
+        let roots = scanRoots
+        let clones = await Task.detached { GitHub.scanClones(roots: roots) }.value
         var map: [String: LocalRepo] = [:]
         for clone in clones { map[clone.nameWithOwner] = clone }
         localRepos = map
+        await enrichDetectedClones()
+    }
+
+    /// For clones whose `owner/repo` isn't in any loaded `gh repo list`, pull
+    /// the repo's real metadata (push date, visibility) so its row looks like
+    /// any other — not a bare folder.
+    private func enrichDetectedClones() async {
+        guard !activeLogin.isEmpty else { return }
+        let known = Set(remoteRepos.values.flatMap { $0 }.map(\.nameWithOwner))
+        let pending = localRepos.values.compactMap { $0.originSlug }
+            .filter { !known.contains($0) && detectedMeta[$0] == nil }
+        guard !pending.isEmpty, let token = try? await token(for: activeLogin) else { return }
+        for slug in pending {
+            if var view = try? await GitHub.repoView(slug: slug, token: token) {
+                view.isDetectedLocal = true
+                view.isManuallyAdded = false
+                detectedMeta[slug] = view
+            }
+        }
     }
 
     // MARK: Derived rows
 
-    /// Rows for the active account: its `gh repo list` plus any manually
-    /// added repos assigned to it.
-    var rows: [RepoRow] {
+    private func makeRow(_ remote: RemoteRepo) -> RepoRow {
+        RepoRow(
+            remote: remote,
+            local: localRepos[remote.nameWithOwner],
+            strategy: state.cloneStrategies[remote.nameWithOwner],
+            isBusy: busyRepos.contains(remote.nameWithOwner)
+        )
+    }
+
+    /// The active account's `gh repo list` plus repos manually added to it —
+    /// what "Browse all" shows.
+    var browseRows: [RepoRow] {
         var remotes = remoteRepos[activeLogin] ?? []
         let added = state.addedRepos.filter { $0.login == activeLogin }
         for entry in added where !remotes.contains(where: { $0.nameWithOwner == entry.nameWithOwner }) {
@@ -163,14 +240,31 @@ final class Store: ObservableObject {
                 isManuallyAdded: true
             ))
         }
-        return remotes.map { remote in
-            RepoRow(
-                remote: remote,
-                local: localRepos[remote.nameWithOwner],
-                strategy: state.cloneStrategies[remote.nameWithOwner],
-                isBusy: busyRepos.contains(remote.nameWithOwner)
+        return remotes.map(makeRow)
+    }
+
+    /// Everything worth showing in the "recent" view: the browse set, plus
+    /// every clone found on disk in the scan folders (any account / org),
+    /// even ones not in the active list.
+    var rows: [RepoRow] {
+        var out = browseRows
+        var seen = Set(out.map(\.id))
+        for (key, local) in localRepos where !seen.contains(key) {
+            seen.insert(key)
+            let remote = detectedMeta[key] ?? RemoteRepo(
+                name: local.originSlug?.split(separator: "/").last.map(String.init) ?? local.path.lastPathComponent,
+                nameWithOwner: key,
+                description: "",
+                isPrivate: false,
+                pushedAt: nil,
+                url: local.originURL ?? "",
+                diskUsageKB: 0,
+                isManuallyAdded: false,
+                isDetectedLocal: true
             )
+            out.append(makeRow(remote))
         }
+        return out
     }
 
     /// Repo keys the user has interacted with — cloned now, opened before,

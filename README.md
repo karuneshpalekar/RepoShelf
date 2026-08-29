@@ -46,8 +46,23 @@ config.
 
 All state is a local JSON file at
 `~/Library/Application Support/RepoShelf/state.json` (identities,
-per-repo clone strategy, last-opened times, added repos, activity log).
-Clones land in `~/Code/<account>/<repo>`.
+per-repo clone strategy, last-opened times, added repos, activity log,
+scan folders). New clones land in `~/Code/<account>/<repo>`.
+
+### Existing clones
+
+RepoShelf **maps clones you already have** wherever they live. On first
+launch it scans a default set of folders (`~/Code`, `~/Downloads`,
+`~/Documents/GitHub`, `~/Developer`, `~/Projects`, …) — whichever exist —
+plus your workspace root, recursively (bounded depth, skipping
+`node_modules` and friends). Each working copy is matched to its GitHub
+repo by its `origin` remote, not by folder name, so
+`~/Downloads/some-old-checkout` shows up as `owner/some-old-checkout` and
+lines up with the same repo in your list. Clones under an account/org
+that isn't your active one show tagged **DETECTED**; git working copies
+with no GitHub origin show as **LOCAL ONLY** (Reveal / open / remove, but
+no clone). Manage the folder list from the **sliders** button in the
+header.
 
 ## Clone strategies
 
