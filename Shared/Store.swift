@@ -173,6 +173,15 @@ final class Store: ObservableObject {
         }
     }
 
+    /// Repo keys the user has interacted with — cloned now, opened before,
+    /// or manually added. Drives the Repos tab's default "recent" view.
+    var interactedRepoKeys: Set<String> {
+        var keys = Set(localRepos.keys)
+        keys.formUnion(state.lastOpened.keys)
+        keys.formUnion(state.addedRepos.map(\.nameWithOwner))
+        return keys
+    }
+
     /// Cloned repos (any account) not opened in 21+ days.
     var staleClones: [LocalRepo] {
         let cutoff = Date().addingTimeInterval(-21 * 86_400)
@@ -238,7 +247,8 @@ final class Store: ObservableObject {
             defer { busyRepos.remove(nameWithOwner) }
             do {
                 try FileManager.default.trashItem(at: local.path, resultingItemURL: nil)
-                state.lastOpened[nameWithOwner] = nil
+                // Keep lastOpened so the repo stays in the Repos "recent" list
+                // with a Clone button — removing frees disk, not the shortcut.
                 persist()
                 await scanLocal()
                 log(.remove, name, "freed \(freed)")

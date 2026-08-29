@@ -7,12 +7,53 @@ struct ReposView: View {
     let onClone: (RepoRow) -> Void
     let onAddRepo: () -> Void
 
-    private var filteredRows: [RepoRow] {
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        return store.rows.filter { row in
-            (q.isEmpty || row.name.lowercased().contains(q) || row.remote.nameWithOwner.lowercased().contains(q))
-            && (!clonedOnly || row.isCloned)
+    /// When true (the default), the list is limited to repos RepoShelf has
+    /// touched — cloned, opened, or added. Browsing the full account list is
+    /// behind a CTA so hundreds of untouched repos don't bury the ones in use.
+    @State private var recentOnly = true
+
+    private var trimmedQuery: String {
+        query.trimmingCharacters(in: .whitespaces).lowercased()
+    }
+
+    private var isSearching: Bool { !trimmedQuery.isEmpty }
+
+    private func matchesQuery(_ row: RepoRow) -> Bool {
+        let q = trimmedQuery
+        return q.isEmpty
+            || row.name.lowercased().contains(q)
+            || row.remote.nameWithOwner.lowercased().contains(q)
+    }
+
+    /// All rows for the active account matching the search + on-disk filter.
+    private var matchingRows: [RepoRow] {
+        store.rows.filter { matchesQuery($0) && (!clonedOnly || $0.isCloned) }
+    }
+
+    /// Rows the user has interacted with, most-recent first.
+    private var recentRows: [RepoRow] {
+        let keys = store.interactedRepoKeys
+        return matchingRows
+            .filter { keys.contains($0.id) }
+            .sorted { lhs, rhs in
+                let l = store.state.lastOpened[lhs.id] ?? .distantPast
+                let r = store.state.lastOpened[rhs.id] ?? .distantPast
+                if l != r { return l > r }
+                return (lhs.remote.pushedAt ?? .distantPast) > (rhs.remote.pushedAt ?? .distantPast)
+            }
+    }
+
+    /// What the list actually shows: search hits cut across everything;
+    /// otherwise the recent set unless the user chose to browse all.
+    private var visibleRows: [RepoRow] {
+        if isSearching || !recentOnly {
+            return matchingRows.sorted { ($0.remote.pushedAt ?? .distantPast) > ($1.remote.pushedAt ?? .distantPast) }
         }
+        return recentRows
+    }
+
+    private var hiddenCount: Int {
+        max(0, matchingRows.count - recentRows.count)
     }
 
     var body: some View {
@@ -63,21 +104,75 @@ struct ReposView: View {
                     .padding(.bottom, 6)
             }
 
+            if isSearching {
+                listCaption("Searching all repos for \(store.activeLogin)")
+            } else if !recentOnly {
+                HStack {
+                    listCaption("All repos for \(store.activeLogin)")
+                    Spacer(minLength: 0)
+                    Button("Show recent only") { recentOnly = true }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 4)
+            }
+
             ScrollView {
                 LazyVStack(spacing: 7) {
-                    ForEach(filteredRows) { row in
+                    ForEach(visibleRows) { row in
                         RepoRowView(row: row, onClone: { onClone(row) })
                     }
-                    if filteredRows.isEmpty {
-                        EmptyHint(text: store.isLoadingRepos
-                            ? "Loading repos…"
-                            : "Nothing here — use + to add a repo by URL.")
+
+                    if visibleRows.isEmpty {
+                        EmptyHint(text: emptyText)
+                    }
+
+                    if !isSearching && recentOnly && hiddenCount > 0 {
+                        Button {
+                            recentOnly = false
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "square.stack.3d.up")
+                                Text("Browse all \(matchingRows.count) repos")
+                                    .fontWeight(.semibold)
+                                Text("· \(hiddenCount) older")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Theme.accent)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                        }
+                        .buttonStyle(.plain)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4]))
+                        )
+                        .padding(.top, 3)
                     }
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 12)
             }
         }
+    }
+
+    private func listCaption(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.system(size: 9.5, weight: .semibold))
+            .foregroundStyle(.tertiary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 4)
+    }
+
+    private var emptyText: String {
+        if store.isLoadingRepos { return "Loading repos…" }
+        if isSearching { return "No repos match “\(query)”." }
+        if recentOnly { return "No repos touched yet — clone one from Browse all, or add by URL with +." }
+        return "Nothing here — use + to add a repo by URL."
     }
 }
 
