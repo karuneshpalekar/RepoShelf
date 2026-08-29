@@ -10,7 +10,7 @@ struct CloneSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Clone \(row.name)").font(.system(size: 13.5, weight: .bold))
+                Text("Download \(row.name)").font(.system(size: 13.5, weight: .bold))
                 Text("into \(store.destination(for: row.remote.nameWithOwner).path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))")
                     .font(.system(size: 10.5))
                     .foregroundStyle(.secondary)
@@ -60,7 +60,7 @@ struct CloneSheet: View {
                     store.clone(row, strategy: strategy)
                     dismiss()
                 } label: {
-                    Text("Clone")
+                    Text("Download")
                         .font(.system(size: 11.5, weight: .bold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 15).padding(.vertical, 7)

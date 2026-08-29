@@ -257,14 +257,15 @@ private struct RepoRowView: View {
             } else if !row.isLocalOnly {
                 Button(action: onClone) {
                     HStack(spacing: 5) {
-                        Image(systemName: "arrow.down.to.line").font(.system(size: 10, weight: .bold))
-                        Text("Clone").font(.system(size: 11, weight: .semibold))
+                        Image(systemName: "arrow.down.circle.fill").font(.system(size: 11, weight: .bold))
+                        Text("Download").font(.system(size: 11, weight: .semibold))
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 11).padding(.vertical, 6)
                 }
                 .buttonStyle(.plain)
                 .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent))
+                .help(row.strategy != nil ? "Re-download this repo" : "Clone this repo")
             }
         }
         .padding(.horizontal, 11)

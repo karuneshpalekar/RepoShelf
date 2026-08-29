@@ -41,7 +41,10 @@ config.
   `git init` (if needed) + first commit + `gh repo create --source
   --push`.
 - **Cleanup tab** — cloned repos (any account) you haven't opened in 3+
-  weeks, with per-repo Remove and a "remove all / reclaim X" button.
+  weeks, with per-repo Remove and a "remove all / reclaim X" button. A
+  removed repo doesn't disappear — it stays in the Repos tab with a
+  **Download** button, and re-downloading puts it back in the same folder
+  it was removed from.
 - **Accounts tab** — every account `gh` knows, which is active, and an
   editable commit identity per account. **Add account** opens
   `gh auth login` in Terminal.

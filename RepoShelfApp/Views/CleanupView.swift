@@ -12,7 +12,7 @@ struct CleanupView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 9) {
-                Text("Local copies you haven't opened in 3+ weeks. Everything here is pushed to GitHub — removing just frees the disk.")
+                Text("Local copies you haven't opened in 3+ weeks. Everything here is pushed to GitHub — removing just frees the disk, and the repo stays in the Repos tab with a Download button to pull it back anytime.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
