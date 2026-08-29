@@ -1,0 +1,46 @@
+name: RepoShelf
+options:
+  bundleIdPrefix: com.karunesh.reposhelf
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  xcodeVersion: "15.3"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: 7M9QHX569W
+    CODE_SIGNING_REQUIRED: YES
+    CODE_SIGNING_ALLOWED: YES
+
+targets:
+  RepoShelfApp:
+    type: application
+    platform: macOS
+    sources:
+      - path: RepoShelfApp
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.karunesh.reposhelf.app
+        PRODUCT_NAME: RepoShelf
+        ENABLE_HARDENED_RUNTIME: false
+    info:
+      path: RepoShelfApp/Info.plist
+      properties:
+        CFBundleDisplayName: RepoShelf
+        LSUIElement: true
+        NSHumanReadableCopyright: ""
+        NSAppleEventsUsageDescription: "RepoShelf opens Terminal to run 'gh auth login' when you add a GitHub account."
+
+schemes:
+  RepoShelf:
+    build:
+      targets:
+        RepoShelfApp: all
+    run:
+      config: Debug
+    archive:
+      config: Release
