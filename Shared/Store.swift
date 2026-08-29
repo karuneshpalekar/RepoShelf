@@ -194,7 +194,12 @@ final class Store: ObservableObject {
         let roots = scanRoots
         let result = await Task.detached { GitHub.scan(roots: roots) }.value
         var map: [String: LocalRepo] = [:]
-        for clone in result.clones { map[clone.nameWithOwner] = clone }
+        for clone in result.clones {
+            map[clone.nameWithOwner] = clone
+            if let slug = clone.originSlug {
+                rememberRepo(slug, url: clone.originURL ?? "", parent: clone.path.deletingLastPathComponent())
+            }
+        }
         localRepos = map
         looseFolders = result.looseDirs
         await enrichDetectedClones()
@@ -220,9 +225,10 @@ final class Store: ObservableObject {
     /// any other — not a bare folder.
     private func enrichDetectedClones() async {
         guard !activeLogin.isEmpty else { return }
-        let known = Set(remoteRepos.values.flatMap { $0 }.map(\.nameWithOwner))
-        let pending = localRepos.values.compactMap { $0.originSlug }
-            .filter { !known.contains($0) && detectedMeta[$0] == nil }
+        let listed = Set(remoteRepos.values.flatMap { $0 }.map(\.nameWithOwner))
+        let candidates = localRepos.values.compactMap { $0.originSlug } + state.knownRepos.map(\.nameWithOwner)
+        let pending = Array(Set(candidates))
+            .filter { $0.contains("/") && !listed.contains($0) && detectedMeta[$0] == nil }
         guard !pending.isEmpty, let token = try? await token(for: activeLogin) else { return }
         for slug in pending {
             if var view = try? await GitHub.repoView(slug: slug, token: token) {
@@ -261,23 +267,30 @@ final class Store: ObservableObject {
     }
 
     /// Everything worth showing in the "recent" view: the browse set, plus
-    /// every clone found on disk in the scan folders (any account / org),
-    /// even ones not in the active list.
+    /// every clone found on disk (any account / org), plus repos previously
+    /// on disk that were cleaned up — so a Download button is always at hand.
     var rows: [RepoRow] {
         var out = browseRows
         var seen = Set(out.map(\.id))
+
         for (key, local) in localRepos where !seen.contains(key) {
             seen.insert(key)
             let remote = detectedMeta[key] ?? RemoteRepo(
                 name: local.originSlug?.split(separator: "/").last.map(String.init) ?? local.path.lastPathComponent,
-                nameWithOwner: key,
-                description: "",
-                isPrivate: false,
-                pushedAt: nil,
-                url: local.originURL ?? "",
-                diskUsageKB: 0,
-                isManuallyAdded: false,
-                isDetectedLocal: true
+                nameWithOwner: key, description: "", isPrivate: false, pushedAt: nil,
+                url: local.originURL ?? "", diskUsageKB: 0,
+                isManuallyAdded: false, isDetectedLocal: true
+            )
+            out.append(makeRow(remote))
+        }
+
+        for known in state.knownRepos where !seen.contains(known.nameWithOwner) {
+            seen.insert(known.nameWithOwner)
+            let remote = detectedMeta[known.nameWithOwner] ?? RemoteRepo(
+                name: known.nameWithOwner.split(separator: "/").last.map(String.init) ?? known.nameWithOwner,
+                nameWithOwner: known.nameWithOwner, description: "", isPrivate: false, pushedAt: nil,
+                url: known.cloneURL, diskUsageKB: 0,
+                isManuallyAdded: false, isDetectedLocal: true
             )
             out.append(makeRow(remote))
         }
@@ -285,12 +298,37 @@ final class Store: ObservableObject {
     }
 
     /// Repo keys the user has interacted with — cloned now, opened before,
-    /// or manually added. Drives the Repos tab's default "recent" view.
+    /// added, or seen on disk at some point. Drives the "recent" view.
     var interactedRepoKeys: Set<String> {
         var keys = Set(localRepos.keys)
         keys.formUnion(state.lastOpened.keys)
         keys.formUnion(state.addedRepos.map(\.nameWithOwner))
+        keys.formUnion(state.knownRepos.map(\.nameWithOwner))
         return keys
+    }
+
+    /// The account whose token should fetch `login`'s repos.
+    private func tokenAccount(for login: String) -> String {
+        accounts.contains { $0.login == login } ? login : activeLogin
+    }
+
+    private func ownerOf(_ slug: String) -> String {
+        String(slug.split(separator: "/").first ?? Substring(activeLogin))
+    }
+
+    func rememberRepo(_ nameWithOwner: String, url: String, parent: URL?) {
+        guard !nameWithOwner.hasPrefix("local/"), nameWithOwner.contains("/") else { return }
+        let parentDisplay = parent?.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+        if let i = state.knownRepos.firstIndex(where: { $0.nameWithOwner == nameWithOwner }) {
+            if !url.isEmpty { state.knownRepos[i].cloneURL = url }
+            if let parentDisplay { state.knownRepos[i].lastParentPath = parentDisplay }
+        } else {
+            state.knownRepos.append(RepoShelfState.KnownRepo(
+                nameWithOwner: nameWithOwner, cloneURL: url,
+                login: ownerOf(nameWithOwner), lastParentPath: parentDisplay
+            ))
+        }
+        persist()
     }
 
     /// Cloned repos (any account) not opened in 21+ days.
@@ -316,6 +354,12 @@ final class Store: ObservableObject {
         let parts = slug.split(separator: "/")
         let owner = parts.first.map(String.init) ?? activeLogin
         let repo = parts.last.map(String.init) ?? slug
+        // Re-download back to where the clone last lived, if we know.
+        if let known = state.knownRepos.first(where: { $0.nameWithOwner == slug }),
+           let parent = known.lastParentPath, !parent.isEmpty {
+            return URL(fileURLWithPath: (parent as NSString).expandingTildeInPath)
+                .appendingPathComponent(repo)
+        }
         return state.workspaceRoot.appendingPathComponent(owner).appendingPathComponent(repo)
     }
 
@@ -327,17 +371,19 @@ final class Store: ObservableObject {
     func clone(_ row: RepoRow, strategy: CloneStrategy) {
         let slug = row.remote.nameWithOwner
         let dest = destination(for: slug)
+        let account = tokenAccount(for: ownerOf(slug))
         busyRepos.insert(slug)
         Task {
             defer { busyRepos.remove(slug) }
             do {
-                let token = try await token(for: activeLogin)
+                let token = try await token(for: account)
                 try await GitHub.clone(
                     slug: slug, into: dest, strategy: strategy,
-                    token: token, identity: activeIdentity
+                    token: token, identity: state.identities[account]
                 )
                 state.cloneStrategies[slug] = strategy
                 state.lastOpened[slug] = Date()
+                rememberRepo(slug, url: row.remote.url, parent: dest.deletingLastPathComponent())
                 persist()
                 await scanLocal()
                 let size = localRepos[slug].map { Formatting.size(bytes: $0.sizeBytes) } ?? "cloned"
@@ -390,6 +436,7 @@ final class Store: ObservableObject {
             ))
             remoteRepos[activeLogin, default: []].removeAll { $0.nameWithOwner == view.nameWithOwner }
             remoteRepos[activeLogin, default: []].insert(view, at: 0)
+            rememberRepo(view.nameWithOwner, url: view.url, parent: nil)
             persist()
             errorMessage = nil
             return true

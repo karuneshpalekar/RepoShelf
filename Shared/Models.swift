@@ -81,6 +81,9 @@ struct RepoShelfState: Codable {
     var lastOpened: [String: Date] = [:]
     /// manually added repos (nameWithOwner) that aren't in `gh repo list`
     var addedRepos: [AddedRepo] = []
+    /// Every repo RepoShelf has seen on disk or cloned — kept so a repo stays
+    /// in the Repos list (with a Download button) after it's cleaned up.
+    var knownRepos: [KnownRepo] = []
     var activity: [ActivityEvent] = []
     var appearanceRaw: String = "system"
 
@@ -89,6 +92,18 @@ struct RepoShelfState: Codable {
         var nameWithOwner: String
         var cloneURL: String
         var login: String
+    }
+
+    struct KnownRepo: Codable, Identifiable {
+        var id: String { nameWithOwner }
+        var nameWithOwner: String
+        var cloneURL: String
+        /// The owner/org — used to display it and to pick which account's
+        /// token can fetch it.
+        var login: String
+        /// `~`-relative parent folder the clone last lived in, so a
+        /// re-download lands back where it was.
+        var lastParentPath: String?
     }
 
     var workspaceRoot: URL {
