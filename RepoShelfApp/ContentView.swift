@@ -85,28 +85,18 @@ struct ContentView: View {
 
             accountSwitcher
 
-            Button {
-                cycleAppearance()
-            } label: {
-                Image(systemName: appearance.icon)
-                    .font(.system(size: 12))
-                    .frame(width: 24, height: 24)
+            Button(action: cycleAppearance) {
+                HeaderIconLabel(systemName: appearance.icon, size: 12)
             }
-            .buttonStyle(.plain)
-            .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
+            .buttonStyle(.hitFull)
             .help("Appearance: \(appearance.label)")
 
             Button {
                 showSettings.toggle()
             } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 12))
-                    .frame(width: 24, height: 24)
+                HeaderIconLabel(systemName: "slider.horizontal.3", size: 12)
             }
-            .buttonStyle(.plain)
-            .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
+            .buttonStyle(.hitFull)
             .help("Scan folders & settings")
             .popover(isPresented: $showSettings, arrowEdge: .bottom) {
                 SettingsPopover().environmentObject(store)
@@ -115,13 +105,9 @@ struct ContentView: View {
             Button {
                 panelState.isCollapsed = true
             } label: {
-                Image(systemName: "arrow.down.right.and.arrow.up.left")
-                    .font(.system(size: 11))
-                    .frame(width: 24, height: 24)
+                HeaderIconLabel(systemName: "arrow.down.right.and.arrow.up.left", size: 11)
             }
-            .buttonStyle(.plain)
-            .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
+            .buttonStyle(.hitFull)
             .help("Collapse to pill")
         }
         .padding(.horizontal, 14)
@@ -153,12 +139,13 @@ struct ContentView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .frame(maxWidth: 128)
+            .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
+            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
+            .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize(horizontal: false, vertical: true)
-        .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
     }
 
     private func cycleAppearance() {
@@ -184,8 +171,9 @@ struct ContentView: View {
                             UnevenRoundedRectangle(topLeadingRadius: 7, topTrailingRadius: 7)
                                 .fill(tab == item ? Theme.panelBackground : .clear)
                         )
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hitFull)
             }
             Spacer(minLength: 0)
         }
@@ -328,7 +316,22 @@ struct CompactPillView: View {
     }
 }
 
-/// A small pill button used for row actions.
+/// A boxed icon used in the toolbar header.
+struct HeaderIconLabel: View {
+    let systemName: String
+    var size: CGFloat = 12
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: size))
+            .frame(width: 24, height: 24)
+            .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
+            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
+            .contentShape(Rectangle())
+    }
+}
+
+/// A small pill button used for row actions — the whole 26×26 box is clickable.
 struct IconActionButton: View {
     let systemName: String
     var tint: Color = .secondary
@@ -341,10 +344,11 @@ struct IconActionButton: View {
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(tint)
                 .frame(width: 26, height: 26)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Theme.surface))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(borderColor))
+                .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(borderColor))
+        .buttonStyle(.hitFull)
     }
 }
 

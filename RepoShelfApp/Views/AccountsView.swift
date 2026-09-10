@@ -20,13 +20,13 @@ struct AccountsView: View {
                     .foregroundStyle(Theme.accent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4]))
+                    )
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4]))
-                )
+                .buttonStyle(.hitFull)
 
                 Text("runs `gh auth login` in a terminal, then remembers the commit identity")
                     .font(.system(size: 10.5))
@@ -65,12 +65,15 @@ private struct AccountCard: View {
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(RoundedRectangle(cornerRadius: 5).fill(Theme.okBackground))
                 } else {
-                    Button("Switch") { store.setActive(account.login) }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 10.5, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
-                        .padding(.horizontal, 9).padding(.vertical, 4)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border))
+                    Button { store.setActive(account.login) } label: {
+                        Text("Switch")
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .foregroundStyle(Theme.accent)
+                            .padding(.horizontal, 9).padding(.vertical, 4)
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.hitFull)
                 }
             }
 

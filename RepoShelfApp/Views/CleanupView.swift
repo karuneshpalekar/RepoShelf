@@ -34,10 +34,11 @@ struct CleanupView: View {
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(Theme.danger)
                                 .padding(.horizontal, 11).padding(.vertical, 6)
+                                .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
+                                .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.dangerBorder))
+                                .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
-                        .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
-                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.dangerBorder))
+                        .buttonStyle(.hitFull)
                     }
                     .padding(.horizontal, 11).padding(.vertical, 10)
                     .background(RoundedRectangle(cornerRadius: 9).fill(Theme.surface))
@@ -55,10 +56,10 @@ struct CleanupView: View {
                             .foregroundStyle(Theme.danger)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 9)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.dangerBackground))
                             .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Theme.dangerBackground))
+                    .buttonStyle(.hitFull)
                     .padding(.top, 2)
                 }
             }

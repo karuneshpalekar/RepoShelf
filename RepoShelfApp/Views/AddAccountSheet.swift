@@ -31,26 +31,15 @@ struct AddAccountSheet: View {
 
             HStack {
                 Spacer()
-                Button("Cancel", action: dismiss).buttonStyle(.plain)
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 13).padding(.vertical, 7)
-                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
-                Button {
+                SheetButton(title: "Cancel", action: dismiss)
+                SheetButton(title: "Run gh auth login", kind: .primary) {
                     let login = username.trimmingCharacters(in: .whitespaces)
                     if !login.isEmpty {
                         store.setIdentity(GitIdentity(name: name, email: email), for: login)
                     }
                     store.openTerminalForLogin()
                     dismiss()
-                } label: {
-                    Text("Run gh auth login")
-                        .font(.system(size: 11.5, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 15).padding(.vertical, 7)
                 }
-                .buttonStyle(.plain)
-                .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent))
             }
         }
         .padding(16)

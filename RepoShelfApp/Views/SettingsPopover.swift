@@ -22,12 +22,16 @@ struct SettingsPopover: View {
                         Button {
                             store.removeScanRoot(path)
                         } label: {
-                            Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                            Image(systemName: "xmark")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.tertiary)
+                                .frame(width: 22, height: 22)
+                                .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.tertiary)
+                        .buttonStyle(.hitFull)
+                        .help("Remove folder")
                     }
-                    .padding(.horizontal, 8).padding(.vertical, 5)
+                    .padding(.leading, 8).padding(.trailing, 3).padding(.vertical, 3)
                     .background(RoundedRectangle(cornerRadius: 6).fill(Theme.surfaceSecondary))
                 }
             }
@@ -38,9 +42,11 @@ struct SettingsPopover: View {
                 } label: {
                     Label("Add folder…", systemImage: "plus")
                         .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                        .padding(.vertical, 4).padding(.trailing, 6)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(Theme.accent)
+                .buttonStyle(.hitFull)
 
                 Spacer()
 
@@ -49,9 +55,11 @@ struct SettingsPopover: View {
                 } label: {
                     Label("Rescan", systemImage: "arrow.clockwise")
                         .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                        .padding(.vertical, 4).padding(.leading, 6)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(Theme.accent)
+                .buttonStyle(.hitFull)
             }
 
             Divider().overlay(Theme.borderSoft)
