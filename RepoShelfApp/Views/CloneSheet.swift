@@ -42,31 +42,21 @@ struct CloneSheet: View {
                         }
                         .padding(9)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(strategy == option ? Theme.chipBackground : Theme.surface))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(strategy == option ? Theme.accent : Theme.border))
+                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(strategy == option ? Theme.chipBackground : Theme.surface))
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(strategy == option ? Theme.accent : Theme.border))
+                    .buttonStyle(.hitFull)
                 }
             }
 
             HStack {
                 Spacer()
-                Button("Cancel", action: dismiss).buttonStyle(.plain)
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 13).padding(.vertical, 7)
-                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
-                Button {
+                SheetButton(title: "Cancel", action: dismiss)
+                SheetButton(title: "Download", kind: .primary) {
                     store.clone(row, strategy: strategy)
                     dismiss()
-                } label: {
-                    Text("Download")
-                        .font(.system(size: 11.5, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 15).padding(.vertical, 7)
                 }
-                .buttonStyle(.plain)
-                .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent))
             }
         }
         .padding(16)

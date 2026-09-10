@@ -24,13 +24,13 @@ struct PublishView: View {
                     .foregroundStyle(Theme.accent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4]))
+                    )
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4]))
-                )
+                .buttonStyle(.hitFull)
 
                 if let message = store.errorMessage {
                     ErrorBanner(message: message)
@@ -73,9 +73,10 @@ struct PublishView: View {
                     Text("Publish").font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 11).padding(.vertical, 6)
+                        .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent))
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent))
+                .buttonStyle(.hitFull)
             }
         }
         .padding(.horizontal, 11).padding(.vertical, 10)

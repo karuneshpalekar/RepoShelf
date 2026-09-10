@@ -41,12 +41,13 @@ struct PublishSheet: View {
                             Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
                         }
                         .padding(.horizontal, 8).padding(.vertical, 5)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.panelBackground))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border))
+                        .contentShape(Rectangle())
                     }
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
                     .fixedSize()
-                    .background(RoundedRectangle(cornerRadius: 6).fill(Theme.panelBackground))
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border))
                     Spacer(minLength: 0)
                 }
 
@@ -68,12 +69,12 @@ struct PublishSheet: View {
 
             HStack {
                 Spacer()
-                Button("Cancel", action: dismiss).buttonStyle(.plain)
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 13).padding(.vertical, 7)
-                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
-                Button {
+                SheetButton(title: "Cancel", action: dismiss)
+                SheetButton(
+                    title: isPrivate ? "Create private repo" : "Create public repo",
+                    kind: .primary,
+                    isDisabled: owner.isEmpty
+                ) {
                     store.publish(
                         folder: folder,
                         owner: owner,
@@ -82,15 +83,7 @@ struct PublishSheet: View {
                         isPrivate: isPrivate
                     )
                     dismiss()
-                } label: {
-                    Text(isPrivate ? "Create private repo" : "Create public repo")
-                        .font(.system(size: 11.5, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 15).padding(.vertical, 7)
                 }
-                .buttonStyle(.plain)
-                .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent))
-                .disabled(owner.isEmpty)
             }
         }
         .padding(16)
@@ -119,6 +112,6 @@ struct PublishSheet: View {
             .overlay(RoundedRectangle(cornerRadius: 7).stroke(selected ? Theme.accent : Theme.border))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hitFull)
     }
 }

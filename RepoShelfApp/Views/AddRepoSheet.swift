@@ -39,11 +39,7 @@ struct AddRepoSheet: View {
 
             HStack {
                 Spacer()
-                Button("Cancel", action: dismiss).buttonStyle(.plain)
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 13).padding(.vertical, 7)
-                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
+                SheetButton(title: "Cancel", action: dismiss)
                 Button(action: add) {
                     HStack(spacing: 5) {
                         if working { ProgressView().controlSize(.mini) }
@@ -51,10 +47,12 @@ struct AddRepoSheet: View {
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 15).padding(.vertical, 7)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent))
+                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent))
+                .buttonStyle(.hitFull)
                 .disabled(working)
+                .opacity(working ? 0.6 : 1)
             }
         }
         .padding(16)

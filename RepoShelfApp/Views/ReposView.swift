@@ -82,20 +82,22 @@ struct ReposView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(clonedOnly ? Color.white : Color.secondary)
                         .padding(.horizontal, 9).padding(.vertical, 6)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(clonedOnly ? Theme.accent : Theme.surface))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(clonedOnly ? Theme.accent : Theme.border))
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .background(RoundedRectangle(cornerRadius: 8).fill(clonedOnly ? Theme.accent : Theme.surface))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(clonedOnly ? Theme.accent : Theme.border))
+                .buttonStyle(.hitFull)
 
                 Button(action: onAddRepo) {
                     Image(systemName: "plus")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Theme.accent)
                         .frame(width: 28, height: 28)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.surface))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border))
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Theme.surface))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border))
+                .buttonStyle(.hitFull)
                 .help("Add a repo by URL")
             }
             .padding(.horizontal, 14)
@@ -119,10 +121,14 @@ struct ReposView: View {
                 HStack {
                     listCaption("All repos for \(store.activeLogin)")
                     Spacer(minLength: 0)
-                    Button("Show recent only") { recentOnly = true }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 10.5, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
+                    Button { recentOnly = true } label: {
+                        Text("Show recent only")
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .foregroundStyle(Theme.accent)
+                            .padding(.vertical, 3).padding(.leading, 8)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.hitFull)
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 4)
@@ -153,13 +159,13 @@ struct ReposView: View {
                             .foregroundStyle(Theme.accent)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 9)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4]))
+                            )
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4]))
-                        )
+                        .buttonStyle(.hitFull)
                         .padding(.top, 3)
                     }
                 }
@@ -263,9 +269,10 @@ private struct RepoRowView: View {
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 11).padding(.vertical, 6)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent))
+                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent))
+                .buttonStyle(.hitFull)
                 .help(row.strategy != nil ? "Re-download this repo" : "Clone this repo")
             }
         }
@@ -296,8 +303,9 @@ private struct UnclonedFoldersCard: View {
                     Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.system(size: 9, weight: .bold))
                 }
                 .foregroundStyle(.secondary)
+                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hitFull)
 
             if expanded {
                 ForEach(folders, id: \.url) { folder in
@@ -310,9 +318,14 @@ private struct UnclonedFoldersCard: View {
                         Button {
                             NSWorkspace.shared.activateFileViewerSelecting([folder.url])
                         } label: {
-                            Image(systemName: "folder").font(.system(size: 10))
+                            Image(systemName: "folder")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Theme.accent)
+                                .frame(width: 24, height: 24)
+                                .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                        .buttonStyle(.hitFull)
+                        .help("Reveal in Finder")
                     }
                 }
                 Text("These are plain copies — `git init` in place, or clone fresh and delete the copy.")
