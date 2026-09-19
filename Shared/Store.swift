@@ -241,10 +241,23 @@ final class Store: ObservableObject {
 
     // MARK: Derived rows
 
+    /// The name GitHub currently knows a repo by. Repos get renamed / moved
+    /// between orgs, so an old `origin` slug (Ayurwell-v1/x) and the current
+    /// one (Ayurgrroove/x) must collapse to a single row.
+    func canonicalKey(_ key: String) -> String {
+        detectedMeta[key]?.nameWithOwner ?? key
+    }
+
+    /// The on-disk clone for a row id, whichever slug form it was found under.
+    func localRepo(for id: String) -> LocalRepo? {
+        if let hit = localRepos[id] { return hit }
+        return localRepos.first { canonicalKey($0.key) == id }?.value
+    }
+
     private func makeRow(_ remote: RemoteRepo) -> RepoRow {
         RepoRow(
             remote: remote,
-            local: localRepos[remote.nameWithOwner],
+            local: localRepo(for: remote.nameWithOwner),
             strategy: state.cloneStrategies[remote.nameWithOwner],
             isBusy: busyRepos.contains(remote.nameWithOwner)
         )
@@ -273,22 +286,24 @@ final class Store: ObservableObject {
         var out = browseRows
         var seen = Set(out.map(\.id))
 
-        for (key, local) in localRepos where !seen.contains(key) {
-            seen.insert(key)
+        for (key, local) in localRepos {
+            let canon = canonicalKey(key)
+            guard seen.insert(canon).inserted else { continue }
             let remote = detectedMeta[key] ?? RemoteRepo(
                 name: local.originSlug?.split(separator: "/").last.map(String.init) ?? local.path.lastPathComponent,
-                nameWithOwner: key, description: "", isPrivate: false, pushedAt: nil,
+                nameWithOwner: canon, description: "", isPrivate: false, pushedAt: nil,
                 url: local.originURL ?? "", diskUsageKB: 0,
                 isManuallyAdded: false, isDetectedLocal: true
             )
             out.append(makeRow(remote))
         }
 
-        for known in state.knownRepos where !seen.contains(known.nameWithOwner) {
-            seen.insert(known.nameWithOwner)
+        for known in state.knownRepos {
+            let canon = canonicalKey(known.nameWithOwner)
+            guard seen.insert(canon).inserted else { continue }
             let remote = detectedMeta[known.nameWithOwner] ?? RemoteRepo(
                 name: known.nameWithOwner.split(separator: "/").last.map(String.init) ?? known.nameWithOwner,
-                nameWithOwner: known.nameWithOwner, description: "", isPrivate: false, pushedAt: nil,
+                nameWithOwner: canon, description: "", isPrivate: false, pushedAt: nil,
                 url: known.cloneURL, diskUsageKB: 0,
                 isManuallyAdded: false, isDetectedLocal: true
             )
@@ -304,6 +319,7 @@ final class Store: ObservableObject {
         keys.formUnion(state.lastOpened.keys)
         keys.formUnion(state.addedRepos.map(\.nameWithOwner))
         keys.formUnion(state.knownRepos.map(\.nameWithOwner))
+        keys.formUnion(keys.map { canonicalKey($0) })
         return keys
     }
 
@@ -396,7 +412,7 @@ final class Store: ObservableObject {
     }
 
     func remove(_ nameWithOwner: String) {
-        guard let local = localRepos[nameWithOwner] else { return }
+        guard let local = localRepo(for: nameWithOwner) else { return }
         let freed = Formatting.size(bytes: local.sizeBytes)
         let name = nameWithOwner.split(separator: "/").last.map(String.init) ?? nameWithOwner
         busyRepos.insert(nameWithOwner)
@@ -505,7 +521,7 @@ final class Store: ObservableObject {
     // MARK: Editor / Finder
 
     func openInEditor(_ nameWithOwner: String) {
-        guard let local = localRepos[nameWithOwner] else { return }
+        guard let local = localRepo(for: nameWithOwner) else { return }
         state.lastOpened[nameWithOwner] = Date()
         persist()
         if let code = Shell.locate("code") {
@@ -520,7 +536,7 @@ final class Store: ObservableObject {
     }
 
     func revealInFinder(_ nameWithOwner: String) {
-        guard let local = localRepos[nameWithOwner] else { return }
+        guard let local = localRepo(for: nameWithOwner) else { return }
         NSWorkspace.shared.activateFileViewerSelecting([local.path])
     }
 }

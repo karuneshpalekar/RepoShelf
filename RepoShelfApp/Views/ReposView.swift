@@ -135,7 +135,7 @@ struct ReposView: View {
             }
 
             ScrollView {
-                LazyVStack(spacing: 7) {
+                VStack(spacing: 7) {
                     ForEach(visibleRows) { row in
                         RepoRowView(row: row, onClone: { onClone(row) })
                     }
