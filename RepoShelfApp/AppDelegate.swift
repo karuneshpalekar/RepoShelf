@@ -26,18 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 panel.setFrameOrigin(origin)
             }
         }
-        if panelState.isCollapsed {
-            panel.setCollapsed(true)
-        }
         panel.orderFrontRegardless()
         panel.frameTrackingEnabled = true
         self.panel = panel
-
-        panelState.$isCollapsed
-            .removeDuplicates()
-            .dropFirst()
-            .sink { [weak panel] collapsed in panel?.setCollapsed(collapsed) }
-            .store(in: &cancellables)
 
         panelState.$isHidden
             .removeDuplicates()
@@ -63,9 +54,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func handleWake() {
         store.refreshCurrent()
-    }
-
-    func togglePanel() {
-        panelState.isHidden.toggle()
     }
 }

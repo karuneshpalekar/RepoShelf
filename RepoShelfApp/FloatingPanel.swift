@@ -4,22 +4,21 @@ import AppKit
 /// An NSPanel that behaves like a persistent desktop widget: available
 /// without a Dock icon, doesn't steal focus, stays on the Space it was
 /// opened on. Repositioning is via DragHandle on the toolbar header only,
-/// so it doesn't fight scroll/drag gestures inside the panel.
+/// so it doesn't fight scroll/drag gestures inside the panel. Fixed size —
+/// visibility (not size) is what the menu bar toggle controls.
 final class FloatingPanel: NSPanel, NSWindowDelegate {
-    static let expandedSize = NSSize(width: 460, height: 640)
-    static let collapsedSize = NSSize(width: 300, height: 78)
+    static let size = NSSize(width: 460, height: 640)
 
     private static let originXKey = "panelOriginX"
     private static let originYKey = "panelOriginY"
     private static let widthKey = "panelWidth"
     private static let heightKey = "panelHeight"
 
-    private(set) var isCollapsedState = false
     var frameTrackingEnabled = false
 
     init(contentView: some View) {
         super.init(
-            contentRect: NSRect(origin: .zero, size: Self.expandedSize),
+            contentRect: NSRect(origin: .zero, size: Self.size),
             styleMask: [.titled, .closable, .resizable, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -41,31 +40,16 @@ final class FloatingPanel: NSPanel, NSWindowDelegate {
 
         // Bounds a stray SwiftUI/AppKit layout pass (a Menu's label
         // changing, a tab switching) from shrinking the window to fit its
-        // content on its own — confirmed to fix that case. Only
-        // setCollapsed(_:) is meant to move the window between these two
-        // known sizes.
-        pinSize(to: Self.expandedSize)
-    }
-
-    private func pinSize(to size: NSSize) {
-        minSize = size
-        maxSize = size
-    }
-
-    func setCollapsed(_ collapsed: Bool) {
-        isCollapsedState = collapsed
-        let newSize = collapsed ? Self.collapsedSize : Self.expandedSize
-        let topRight = NSPoint(x: frame.maxX, y: frame.maxY)
-        let newOrigin = NSPoint(x: topRight.x - newSize.width, y: topRight.y - newSize.height)
-        pinSize(to: newSize)
-        setFrame(NSRect(origin: newOrigin, size: newSize), display: true, animate: true)
+        // content on its own — confirmed to fix that case.
+        minSize = Self.size
+        maxSize = Self.size
     }
 
     func windowDidMove(_ notification: Notification) { persistFrameIfNeeded() }
     func windowDidResize(_ notification: Notification) { persistFrameIfNeeded() }
 
     private func persistFrameIfNeeded() {
-        guard frameTrackingEnabled, !isCollapsedState else { return }
+        guard frameTrackingEnabled else { return }
         let d = UserDefaults.standard
         d.set(frame.origin.x, forKey: Self.originXKey)
         d.set(frame.origin.y, forKey: Self.originYKey)

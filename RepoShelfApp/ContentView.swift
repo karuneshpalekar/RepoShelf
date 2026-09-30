@@ -41,22 +41,18 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            if panelState.isCollapsed {
-                CompactPillView()
-            } else {
-                VStack(spacing: 0) {
-                    header
-                    tabBar
-                    Divider()
-                    content
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .modifier(FadeIn())
-                        .id(panelState.tab)
-                    Divider()
-                    footer
-                }
-                overlays
+            VStack(spacing: 0) {
+                header
+                tabBar
+                Divider()
+                content
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .modifier(FadeIn())
+                    .id(panelState.tab)
+                Divider()
+                footer
             }
+            overlays
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.background)
@@ -94,14 +90,6 @@ struct ContentView: View {
             .popover(isPresented: $showSettings, arrowEdge: .bottom) {
                 SettingsPopover().environmentObject(store)
             }
-
-            Button {
-                withAnimation(Motion.swap) { panelState.isCollapsed = true }
-            } label: {
-                Image(systemName: "arrow.down.right.and.arrow.up.left")
-            }
-            .buttonStyle(.borderless)
-            .help("Collapse to pill")
         }
         .padding(.horizontal, 14)
         .padding(.top, 14)
@@ -274,44 +262,6 @@ struct WorkspaceBar: View {
         .frame(height: height)
         .accessibilityElement()
         .accessibilityLabel("\(Formatting.size(bytes: used)) workspace, \(Formatting.size(bytes: free)) free")
-    }
-}
-
-struct CompactPillView: View {
-    @EnvironmentObject private var store: Store
-    @EnvironmentObject private var panelState: PanelState
-
-    var body: some View {
-        HStack(spacing: 10) {
-            ZStack {
-                Circle().fill(Color.accentColor).frame(width: 34, height: 34)
-                Image(systemName: "tray.full.fill")
-                    .foregroundStyle(.white)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(store.localRepos.count) on disk").fontWeight(.semibold)
-                Text("\(Formatting.size(bytes: store.freeDiskBytes)) free")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 14)
-        // Exact size, not maxWidth/maxHeight: .infinity: when NSHostingView
-        // queries this view's ideal size with no proposed size to expand
-        // into (which it does for window auto-sizing), "infinity" resolves
-        // to the content's own natural size instead of the window's, and
-        // the window silently resizes to match. A concrete frame matching
-        // FloatingPanel.collapsedSize removes that ambiguity.
-        .frame(width: FloatingPanel.collapsedSize.width, height: FloatingPanel.collapsedSize.height)
-        .background(DragHandle())
-        .background(.background)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.separator))
-        .fullyClickable()
-        .onTapGesture { withAnimation(Motion.swap) { panelState.isCollapsed = false } }
     }
 }
 

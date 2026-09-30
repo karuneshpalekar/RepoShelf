@@ -1,13 +1,8 @@
 import SwiftUI
 
 final class PanelState: ObservableObject {
-    private static let isCollapsedKey = "panelIsCollapsed"
-
-    @Published var isCollapsed: Bool {
-        didSet { UserDefaults.standard.set(isCollapsed, forKey: Self.isCollapsedKey) }
-    }
-
-    /// Not persisted — the panel always shows on next launch.
+    /// Whether the panel is showing — toggled from the menu bar. Not
+    /// persisted: the panel always shows on next launch.
     @Published var isHidden: Bool = false
 
     /// Which tab is showing and which overlay sheet (if any) is up. Not
@@ -16,8 +11,4 @@ final class PanelState: ObservableObject {
     /// outside ContentView.
     @Published var tab: ShelfTab = .repos
     @Published var activeSheet: ActiveSheet?
-
-    init() {
-        isCollapsed = UserDefaults.standard.bool(forKey: Self.isCollapsedKey)
-    }
 }

@@ -28,7 +28,6 @@ enum ScreenshotTour {
         for mode in [AppearanceMode.light, .dark] {
             UserDefaults.standard.set(mode.rawValue, forKey: "appearanceMode")
             panelState.activeSheet = nil
-            panelState.isCollapsed = false
 
             for tab in ShelfTab.allCases {
                 panelState.tab = tab
@@ -57,12 +56,6 @@ enum ScreenshotTour {
 
             panelState.activeSheet = nil
             await pause(0.3)
-
-            withAnimation(Motion.swap) { panelState.isCollapsed = true }
-            await pause(1.2)
-            save(panel, "pill-\(mode.rawValue)", dir)
-            withAnimation(Motion.swap) { panelState.isCollapsed = false }
-            await pause(0.4)
         }
 
         UserDefaults.standard.set(AppearanceMode.system.rawValue, forKey: "appearanceMode")
