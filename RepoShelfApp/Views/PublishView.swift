@@ -9,28 +9,17 @@ struct PublishView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 9) {
                 Text("Put a local folder on GitHub — RepoShelf runs `git init` if needed, makes the first commit, creates the repo, and pushes.")
-                    .font(.system(size: 11))
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Button {
                     chooseFolder()
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "folder.badge.plus")
-                        Text("Choose a folder…").fontWeight(.semibold)
-                    }
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.accent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4]))
-                    )
-                    .contentShape(Rectangle())
+                    Label("Choose a folder…", systemImage: "folder.badge.plus")
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.hitFull)
+                .buttonStyle(.bordered)
 
                 if let message = store.errorMessage {
                     ErrorBanner(message: message)
@@ -38,17 +27,17 @@ struct PublishView: View {
 
                 if !store.localOnlyRepos.isEmpty {
                     Text("GIT REPOS WITH NO REMOTE")
-                        .font(.system(size: 9.5, weight: .semibold))
+                        .font(.caption2.weight(.semibold))
                         .foregroundStyle(.tertiary)
                         .padding(.top, 4)
 
                     ForEach(store.localOnlyRepos, id: \.path) { repo in
-                        row(name: repo.path.lastPathComponent, url: repo.path, hasHistory: true)
+                        row(name: repo.path.lastPathComponent, url: repo.path)
                     }
                 }
 
                 Text("Anything else — a plain project folder that was never a git repo — add it with Choose a folder above.")
-                    .font(.system(size: 10))
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 2)
@@ -57,31 +46,25 @@ struct PublishView: View {
         }
     }
 
-    private func row(name: String, url: URL, hasHistory: Bool) -> some View {
+    private func row(name: String, url: URL) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(name).font(.system(size: 12.5, weight: .semibold))
+                Text(name).fontWeight(.medium)
                 Text(url.deletingLastPathComponent().path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                    .font(.system(size: 10)).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.head)
             }
             Spacer(minLength: 0)
             if store.publishingPaths.contains(url.path) {
                 ProgressView().controlSize(.small)
             } else {
-                Button { onPublish(url) } label: {
-                    Text("Publish").font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 11).padding(.vertical, 6)
-                        .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.hitFull)
+                Button("Publish") { onPublish(url) }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
             }
         }
         .padding(.horizontal, 11).padding(.vertical, 10)
-        .background(RoundedRectangle(cornerRadius: 9).fill(Theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.borderSoft))
+        .cardStyle(radius: 9)
     }
 
     private func chooseFolder() {

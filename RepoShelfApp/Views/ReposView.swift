@@ -63,42 +63,25 @@ struct ReposView: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                     TextField("Filter repos", text: $query)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 12))
                 }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 6)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Theme.surface))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border))
+                .padding(.horizontal, 8)
+                .frame(width: 200, height: 26)
+                .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
 
-                Button {
-                    clonedOnly.toggle()
-                } label: {
-                    Text("On disk")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(clonedOnly ? Color.white : Color.secondary)
-                        .padding(.horizontal, 9).padding(.vertical, 6)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(clonedOnly ? Theme.accent : Theme.surface))
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(clonedOnly ? Theme.accent : Theme.border))
-                        .contentShape(Rectangle())
+                FilterChip(title: "On disk", selected: clonedOnly) {
+                    withAnimation(Motion.swap) { clonedOnly.toggle() }
                 }
-                .buttonStyle(.hitFull)
 
                 Button(action: onAddRepo) {
                     Image(systemName: "plus")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
-                        .frame(width: 28, height: 28)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.surface))
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border))
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.hitFull)
+                .buttonStyle(.borderless)
                 .help("Add a repo by URL")
+
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -121,74 +104,71 @@ struct ReposView: View {
                 HStack {
                     listCaption("All repos for \(store.activeLogin)")
                     Spacer(minLength: 0)
-                    Button { recentOnly = true } label: {
-                        Text("Show recent only")
-                            .font(.system(size: 10.5, weight: .semibold))
-                            .foregroundStyle(Theme.accent)
-                            .padding(.vertical, 3).padding(.leading, 8)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.hitFull)
+                    Button("Show recent only") { withAnimation(Motion.swap) { recentOnly = true } }
+                        .buttonStyle(.link)
+                        .font(.caption)
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 4)
             }
 
-            ScrollView {
-                VStack(spacing: 7) {
-                    ForEach(visibleRows) { row in
-                        RepoRowView(row: row, onClone: { onClone(row) })
-                    }
-
-                    if visibleRows.isEmpty {
-                        EmptyHint(text: emptyText)
-                    }
-
-                    if !isSearching && recentOnly && hiddenCount > 0 {
-                        Button {
-                            recentOnly = false
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "square.stack.3d.up")
-                                Text("Browse all \(matchingRows.count) repos")
-                                    .fontWeight(.semibold)
-                                Text("· \(hiddenCount) older")
-                                    .foregroundStyle(.secondary)
-                            }
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.accent)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 9)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4]))
-                            )
-                            .contentShape(Rectangle())
+            if visibleRows.isEmpty {
+                emptyState
+            } else {
+                ScrollView {
+                    VStack(spacing: 7) {
+                        ForEach(visibleRows) { row in
+                            RepoRowView(row: row, onClone: { onClone(row) })
                         }
-                        .buttonStyle(.hitFull)
-                        .padding(.top, 3)
+
+                        if !isSearching && recentOnly && hiddenCount > 0 {
+                            Button {
+                                withAnimation(Motion.swap) { recentOnly = false }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "square.stack.3d.up")
+                                    Text("Browse all \(matchingRows.count) repos")
+                                    Text("· \(hiddenCount) older").foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                            .padding(.top, 3)
+                        }
                     }
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 12)
                 }
-                .padding(.horizontal, 14)
-                .padding(.bottom, 12)
             }
         }
     }
 
     private func listCaption(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(.system(size: 9.5, weight: .semibold))
+            .font(.caption2.weight(.semibold))
             .foregroundStyle(.tertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 14)
             .padding(.bottom, 4)
     }
 
-    private var emptyText: String {
-        if store.isLoadingRepos { return "Loading repos…" }
-        if isSearching { return "No repos match “\(query)”." }
-        if recentOnly { return "No repos touched yet — clone one from Browse all, or add by URL with +." }
-        return "Nothing here — use + to add a repo by URL."
+    @ViewBuilder
+    private var emptyState: some View {
+        if store.isLoadingRepos {
+            ProgressView("Loading repos…")
+        } else if isSearching {
+            ContentUnavailableView.search(text: query)
+        } else if recentOnly {
+            ContentUnavailableView(
+                "No repos touched yet", systemImage: "tray",
+                description: Text("Clone one from Browse all, or add by URL with +.")
+            )
+        } else {
+            ContentUnavailableView(
+                "Nothing here", systemImage: "tray",
+                description: Text("Add a repo by URL with +.")
+            )
+        }
     }
 }
 
@@ -197,10 +177,10 @@ private struct RepoRowView: View {
     let row: RepoRow
     let onClone: () -> Void
 
-    private var rowTag: String? {
-        if row.isLocalOnly { return "LOCAL ONLY" }
-        if row.isDetected { return "DETECTED" }
-        if row.remote.isManuallyAdded { return "ADDED" }
+    private var tag: (String, Tag)? {
+        if row.isLocalOnly { return ("LOCAL ONLY", .info) }
+        if row.isDetected { return ("DETECTED", .info) }
+        if row.remote.isManuallyAdded { return ("ADDED", .info) }
         return nil
     }
 
@@ -209,38 +189,34 @@ private struct RepoRowView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(row.isLocalOnly || row.isDetected ? row.remote.nameWithOwner : row.name)
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .fontWeight(.medium)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     if row.remote.isPrivate {
-                        Image(systemName: "lock.fill").font(.system(size: 9)).foregroundStyle(.tertiary)
+                        Image(systemName: "lock.fill").font(.caption2).foregroundStyle(.secondary)
                     }
-                    if let tag = rowTag {
-                        Text(tag)
-                            .font(.system(size: 8.5, weight: .bold))
-                            .foregroundStyle(.tertiary)
-                            .padding(.horizontal, 4).padding(.vertical, 1)
-                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border))
+                    if let (text, tagColor) = tag {
+                        TagBadge(text: text, tag: tagColor)
                     }
                 }
                 HStack(spacing: 8) {
                     if row.isCloned {
                         HStack(spacing: 3) {
-                            Image(systemName: "checkmark").font(.system(size: 8, weight: .bold))
+                            Image(systemName: "checkmark").font(.caption2.weight(.bold))
                             Text("on disk · \(row.sizeText ?? "?")\(row.strategy.map { " · \($0.title.lowercased())" } ?? "")")
                         }
-                        .foregroundStyle(Theme.ok)
-                        .fontWeight(.semibold)
+                        .foregroundStyle(.green)
+                        .fontWeight(.medium)
                     } else {
                         Text(row.remote.pushedAt == nil ? "—" : "pushed \(Formatting.relative(row.remote.pushedAt))")
                             .foregroundStyle(.secondary)
                     }
                 }
-                .font(.system(size: 10.5))
+                .font(.caption)
 
                 if row.isCloned, let path = row.pathText {
                     Text(path)
-                        .font(.system(size: 9.5))
+                        .font(.caption2)
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -252,34 +228,42 @@ private struct RepoRowView: View {
             if row.isBusy {
                 ProgressView().controlSize(.small)
             } else if row.isCloned {
-                HStack(spacing: 4) {
-                    IconActionButton(systemName: "chevron.left.forwardslash.chevron.right", tint: Theme.accent) {
+                HStack(spacing: 2) {
+                    Button {
                         store.openInEditor(row.id)
+                    } label: {
+                        Image(systemName: "chevron.left.forwardslash.chevron.right")
                     }
-                    IconActionButton(systemName: "folder") { store.revealInFinder(row.id) }
-                    IconActionButton(systemName: "trash", tint: Theme.danger, borderColor: Theme.dangerBorder) {
+                    .help("Open in editor")
+
+                    Button {
+                        store.revealInFinder(row.id)
+                    } label: {
+                        Image(systemName: "folder")
+                    }
+                    .help("Show in Finder")
+
+                    Button {
                         store.remove(row.id)
+                    } label: {
+                        Image(systemName: "trash")
                     }
+                    .foregroundStyle(.red)
+                    .help("Move the local copy to the Trash")
                 }
+                .buttonStyle(.borderless)
             } else if !row.isLocalOnly {
                 Button(action: onClone) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "arrow.down.circle.fill").font(.system(size: 11, weight: .bold))
-                        Text("Download").font(.system(size: 11, weight: .semibold))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 11).padding(.vertical, 6)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent))
-                    .contentShape(Rectangle())
+                    Text("Download")
                 }
-                .buttonStyle(.hitFull)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
                 .help(row.strategy != nil ? "Re-download this repo" : "Clone this repo")
             }
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 10)
-        .background(RoundedRectangle(cornerRadius: 9).fill(Theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 9).stroke(row.isCloned ? Theme.okBorder : Theme.borderSoft))
+        .cardStyle(radius: 9)
     }
 }
 
@@ -289,66 +273,39 @@ private struct UnclonedFoldersCard: View {
     @State private var expanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.15)) { expanded.toggle() }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "questionmark.folder").font(.system(size: 11))
-                    Text("\(folders.count) folder\(folders.count == 1 ? "" : "s") match your repos but aren't git clones")
-                        .font(.system(size: 10.5, weight: .semibold))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 0)
-                    Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.system(size: 9, weight: .bold))
-                }
-                .foregroundStyle(.secondary)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.hitFull)
-
-            if expanded {
+        DisclosureGroup(isExpanded: $expanded) {
+            VStack(alignment: .leading, spacing: 4) {
                 ForEach(folders, id: \.url) { folder in
                     HStack(spacing: 6) {
-                        Text(folder.name).font(.system(size: 10.5, weight: .medium))
+                        Text(folder.name).fontWeight(.medium)
                         Text(folder.url.deletingLastPathComponent().path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                            .font(.system(size: 9.5)).foregroundStyle(.tertiary)
+                            .foregroundStyle(.tertiary)
                             .lineLimit(1).truncationMode(.head)
                         Spacer(minLength: 0)
                         Button {
                             NSWorkspace.shared.activateFileViewerSelecting([folder.url])
                         } label: {
                             Image(systemName: "folder")
-                                .font(.system(size: 10))
-                                .foregroundStyle(Theme.accent)
-                                .frame(width: 24, height: 24)
-                                .contentShape(Rectangle())
                         }
-                        .buttonStyle(.hitFull)
-                        .help("Reveal in Finder")
+                        .buttonStyle(.borderless)
+                        .help("Show in Finder")
                     }
                 }
                 Text("These are plain copies — `git init` in place, or clone fresh and delete the copy.")
-                    .font(.system(size: 9.5)).foregroundStyle(.tertiary)
+                    .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .font(.caption)
+            .padding(.top, 6)
+        } label: {
+            Label(
+                "\(folders.count) folder\(folders.count == 1 ? "" : "s") match your repos but aren't git clones",
+                systemImage: "questionmark.folder"
+            )
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
         }
         .padding(9)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.surfaceSecondary))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.borderSoft))
-    }
-}
-
-struct ErrorBanner: View {
-    let message: String
-    var body: some View {
-        HStack(alignment: .top, spacing: 6) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10))
-            Text(message).font(.system(size: 10.5)).fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-        }
-        .foregroundStyle(Theme.danger)
-        .padding(8)
-        .background(RoundedRectangle(cornerRadius: 7).fill(Theme.dangerBackground))
+        .cardStyle(radius: 8)
     }
 }

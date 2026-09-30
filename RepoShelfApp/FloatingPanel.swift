@@ -38,6 +38,18 @@ final class FloatingPanel: NSPanel, NSWindowDelegate {
         delegate = self
 
         self.contentView = NSHostingView(rootView: contentView)
+
+        // Bounds a stray SwiftUI/AppKit layout pass (a Menu's label
+        // changing, a tab switching) from shrinking the window to fit its
+        // content on its own — confirmed to fix that case. Only
+        // setCollapsed(_:) is meant to move the window between these two
+        // known sizes.
+        pinSize(to: Self.expandedSize)
+    }
+
+    private func pinSize(to size: NSSize) {
+        minSize = size
+        maxSize = size
     }
 
     func setCollapsed(_ collapsed: Bool) {
@@ -45,6 +57,7 @@ final class FloatingPanel: NSPanel, NSWindowDelegate {
         let newSize = collapsed ? Self.collapsedSize : Self.expandedSize
         let topRight = NSPoint(x: frame.maxX, y: frame.maxY)
         let newOrigin = NSPoint(x: topRight.x - newSize.width, y: topRight.y - newSize.height)
+        pinSize(to: newSize)
         setFrame(NSRect(origin: newOrigin, size: newSize), display: true, animate: true)
     }
 

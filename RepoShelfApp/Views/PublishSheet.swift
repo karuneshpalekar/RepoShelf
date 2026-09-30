@@ -16,9 +16,9 @@ struct PublishSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Publish to GitHub").font(.system(size: 13.5, weight: .bold))
+                Text("Publish to GitHub").font(.title3.weight(.semibold))
                 Text(folderPath.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                    .font(.system(size: 10.5)).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(.secondary)
                     .lineLimit(1).truncationMode(.head)
             }
 
@@ -27,7 +27,7 @@ struct PublishSheet: View {
 
                 HStack(spacing: 8) {
                     Text("account")
-                        .font(.system(size: 10.5, weight: .semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 78, alignment: .leading)
                     Menu {
@@ -35,18 +35,12 @@ struct PublishSheet: View {
                             Button(account.login) { owner = account.login }
                         }
                     } label: {
-                        HStack(spacing: 6) {
-                            AccountAvatar(login: owner, size: 14)
-                            Text(owner.isEmpty ? "—" : owner).font(.system(size: 11.5, weight: .semibold))
-                            Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
-                        }
-                        .padding(.horizontal, 8).padding(.vertical, 5)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Theme.panelBackground))
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border))
-                        .contentShape(Rectangle())
+                        Label(owner.isEmpty ? "—" : owner, systemImage: "person.crop.circle.fill")
+                            .foregroundStyle(owner.isEmpty ? AnyShapeStyle(.secondary) : AnyShapeStyle(AccountPalette.color(owner)))
                     }
                     .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
+                    .padding(.horizontal, 8).padding(.vertical, 5)
+                    .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
                     .fixedSize()
                     Spacer(minLength: 0)
                 }
@@ -54,27 +48,25 @@ struct PublishSheet: View {
                 LabeledField(label: "description", text: $description, placeholder: "optional")
             }
 
-            HStack(spacing: 8) {
-                visibilityButton(title: "Private", symbol: "lock.fill", value: true)
-                visibilityButton(title: "Public", symbol: "globe", value: false)
+            Picker("Visibility", selection: $isPrivate) {
+                Label("Private", systemImage: "lock.fill").tag(true)
+                Label("Public", systemImage: "globe").tag(false)
             }
+            .pickerStyle(.segmented)
+            .labelsHidden()
 
             if needsInit {
                 Label("Not a git repo yet — RepoShelf will run git init and commit every file in the folder first.",
                       systemImage: "info.circle")
-                    .font(.system(size: 10))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             HStack {
                 Spacer()
-                SheetButton(title: "Cancel", action: dismiss)
-                SheetButton(
-                    title: isPrivate ? "Create private repo" : "Create public repo",
-                    kind: .primary,
-                    isDisabled: owner.isEmpty
-                ) {
+                Button("Cancel", action: dismiss).keyboardShortcut(.cancelAction)
+                Button(isPrivate ? "Create private repo" : "Create public repo") {
                     store.publish(
                         folder: folder,
                         owner: owner,
@@ -84,34 +76,19 @@ struct PublishSheet: View {
                     )
                     dismiss()
                 }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(owner.isEmpty)
             }
         }
         .padding(16)
         .frame(width: 400)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.surface))
+        .background(.background, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.separator))
         .shadow(radius: 24, y: 8)
         .onAppear {
             if name.isEmpty { name = folder.lastPathComponent }
             if owner.isEmpty { owner = store.activeLogin }
         }
-    }
-
-    private func visibilityButton(title: String, symbol: String, value: Bool) -> some View {
-        let selected = isPrivate == value
-        return Button {
-            isPrivate = value
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: symbol).font(.system(size: 10))
-                Text(title).font(.system(size: 11.5, weight: .semibold))
-            }
-            .foregroundStyle(selected ? Color.white : Color.secondary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 7).fill(selected ? Theme.accent : Theme.surface))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(selected ? Theme.accent : Theme.border))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.hitFull)
     }
 }

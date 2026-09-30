@@ -10,60 +10,49 @@ struct CleanupView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 9) {
-                Text("Local copies you haven't opened in 3+ weeks. Everything here is pushed to GitHub — removing just frees the disk, and the repo stays in the Repos tab with a Download button to pull it back anytime.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+        if stale.isEmpty {
+            ContentUnavailableView(
+                "Disk is tidy", systemImage: "checkmark.seal",
+                description: Text("Nothing here has sat untouched for 3+ weeks.")
+            )
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 9) {
+                    Text("Local copies you haven't opened in 3+ weeks. Everything here is pushed to GitHub — removing just frees the disk, and the repo stays in the Repos tab with a Download button to pull it back anytime.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                ForEach(stale, id: \.nameWithOwner) { clone in
-                    HStack(spacing: 10) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(clone.nameWithOwner.split(separator: "/").last.map(String.init) ?? clone.nameWithOwner)
-                                .font(.system(size: 12.5, weight: .semibold))
-                            Text("last opened \(Formatting.relative(store.state.lastOpened[clone.nameWithOwner])) · \(Formatting.size(bytes: clone.sizeBytes))")
-                                .font(.system(size: 10.5))
-                                .foregroundStyle(.secondary)
+                    ForEach(stale, id: \.nameWithOwner) { clone in
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(clone.nameWithOwner.split(separator: "/").last.map(String.init) ?? clone.nameWithOwner)
+                                    .fontWeight(.medium)
+                                Text("last opened \(Formatting.relative(store.state.lastOpened[clone.nameWithOwner])) · \(Formatting.size(bytes: clone.sizeBytes))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 0)
+                            Button("Remove") { store.remove(clone.nameWithOwner) }
+                                .buttonStyle(.bordered)
+                                .tint(.red)
                         }
-                        Spacer(minLength: 0)
-                        Button {
-                            store.remove(clone.nameWithOwner)
-                        } label: {
-                            Text("Remove")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(Theme.danger)
-                                .padding(.horizontal, 11).padding(.vertical, 6)
-                                .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
-                                .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.dangerBorder))
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.hitFull)
+                        .padding(.horizontal, 11).padding(.vertical, 10)
+                        .cardStyle(radius: 9)
                     }
-                    .padding(.horizontal, 11).padding(.vertical, 10)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(Theme.surface))
-                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.borderSoft))
-                }
 
-                if stale.isEmpty {
-                    EmptyHint(text: "Nothing stale — disk is tidy.")
-                } else {
                     Button {
                         store.removeAllStale()
                     } label: {
                         Text("Remove all \(stale.count) · reclaim \(Formatting.size(bytes: reclaimBytes))")
-                            .font(.system(size: 11.5, weight: .semibold))
-                            .foregroundStyle(Theme.danger)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 9)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.dangerBackground))
-                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.hitFull)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
                     .padding(.top, 2)
                 }
+                .padding(14)
             }
-            .padding(14)
         }
     }
 }

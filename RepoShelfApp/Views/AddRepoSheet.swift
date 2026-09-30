@@ -11,19 +11,17 @@ struct AddRepoSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Add a repo").font(.system(size: 13.5, weight: .bold))
+                Text("Add a repo").font(.title3.weight(.semibold))
                 Text("Paste a GitHub URL or owner/name — for repos outside your own list (orgs, forks, collaborators).")
-                    .font(.system(size: 10.5))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             TextField("github.com/acme/dashboard  or  acme/dashboard", text: $text)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12))
                 .padding(.horizontal, 10).padding(.vertical, 8)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Theme.panelBackground))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border))
+                .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
                 .onSubmit(add)
 
             HStack(spacing: 7) {
@@ -31,33 +29,30 @@ struct AddRepoSheet: View {
                 Text(store.activeLogin).fontWeight(.semibold)
                 Text("· blobless").foregroundStyle(.secondary)
             }
-            .font(.system(size: 11))
+            .font(.callout)
 
             if let localError {
-                Text(localError).font(.system(size: 10.5)).foregroundStyle(Theme.danger)
+                Text(localError).font(.caption).foregroundStyle(.red)
             }
 
             HStack {
                 Spacer()
-                SheetButton(title: "Cancel", action: dismiss)
+                Button("Cancel", action: dismiss).keyboardShortcut(.cancelAction)
                 Button(action: add) {
                     HStack(spacing: 5) {
                         if working { ProgressView().controlSize(.mini) }
-                        Text("Add & clone").font(.system(size: 11.5, weight: .bold))
+                        Text("Add & clone")
                     }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 15).padding(.vertical, 7)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent))
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.hitFull)
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
                 .disabled(working)
-                .opacity(working ? 0.6 : 1)
             }
         }
         .padding(16)
         .frame(width: 380)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.surface))
+        .background(.background, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.separator))
         .shadow(radius: 24, y: 8)
     }
 

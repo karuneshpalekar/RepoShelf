@@ -11,25 +11,15 @@ struct AccountsView: View {
                     AccountCard(account: account)
                 }
 
-                Button(action: onAddAccount) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "plus")
-                        Text("Add account").fontWeight(.semibold)
-                    }
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.accent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [4]))
-                    )
-                    .contentShape(Rectangle())
+                Button {
+                    onAddAccount()
+                } label: {
+                    Label("Add account", systemImage: "plus").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.hitFull)
+                .buttonStyle(.bordered)
 
                 Text("runs `gh auth login` in a terminal, then remembers the commit identity")
-                    .font(.system(size: 10.5))
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
             }
@@ -52,28 +42,17 @@ private struct AccountCard: View {
             HStack(spacing: 9) {
                 AccountAvatar(login: account.login, size: 26)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(account.login).font(.system(size: 12.5, weight: .semibold))
+                    Text(account.login).fontWeight(.medium)
                     Text(email.isEmpty ? "no commit email set" : email)
-                        .font(.system(size: 10.5))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
                 if isActive {
-                    Text("ACTIVE")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Theme.ok)
-                        .padding(.horizontal, 7).padding(.vertical, 3)
-                        .background(RoundedRectangle(cornerRadius: 5).fill(Theme.okBackground))
+                    TagBadge(text: "ACTIVE", tag: .active)
                 } else {
-                    Button { store.setActive(account.login) } label: {
-                        Text("Switch")
-                            .font(.system(size: 10.5, weight: .semibold))
-                            .foregroundStyle(Theme.accent)
-                            .padding(.horizontal, 9).padding(.vertical, 4)
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border))
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.hitFull)
+                    Button("Switch") { store.setActive(account.login) }
+                        .buttonStyle(.link)
                 }
             }
 
@@ -83,13 +62,12 @@ private struct AccountCard: View {
             }
 
             Text("Clones from this account commit with the identity above, regardless of your global ~/.gitconfig.")
-                .font(.system(size: 10))
+                .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(11)
-        .background(RoundedRectangle(cornerRadius: 9).fill(Theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 9).stroke(isActive ? Theme.chipBorder : Theme.borderSoft))
+        .cardStyle(radius: 9)
         .onAppear { syncFromStore() }
         .onChange(of: name) { _, _ in commit() }
         .onChange(of: email) { _, _ in commit() }
@@ -114,15 +92,13 @@ struct LabeledField: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(label)
-                .font(.system(size: 10.5, weight: .semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .frame(width: 78, alignment: .leading)
             TextField(placeholder, text: $text)
                 .textFieldStyle(.plain)
-                .font(.system(size: 11.5))
                 .padding(.horizontal, 8).padding(.vertical, 5)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Theme.panelBackground))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border))
+                .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
         }
     }
 }

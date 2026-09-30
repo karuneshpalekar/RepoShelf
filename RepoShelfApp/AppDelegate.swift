@@ -53,6 +53,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         store.bootstrap()
+
+        #if DEBUG
+        if let dir = ProcessInfo.processInfo.environment["REPOSHELF_SHOTS"] {
+            Task { await ScreenshotTour.run(store: store, panelState: panelState, panel: panel, to: URL(fileURLWithPath: dir)) }
+        }
+        #endif
     }
 
     @objc private func handleWake() {

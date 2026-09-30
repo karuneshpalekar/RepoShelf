@@ -6,33 +6,30 @@ struct SettingsPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Scan folders")
-                .font(.system(size: 12, weight: .bold))
+            Text("Scan folders").font(.headline)
             Text("RepoShelf looks in these folders for clones you already have and maps each to its GitHub repo by its origin remote.")
-                .font(.system(size: 10.5))
+                .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            VStack(spacing: 4) {
-                ForEach(store.state.scanRootPaths, id: \.self) { path in
+            VStack(spacing: 0) {
+                ForEach(Array(store.state.scanRootPaths.enumerated()), id: \.element) { index, path in
+                    if index > 0 { Divider() }
                     HStack(spacing: 6) {
-                        Image(systemName: "folder").font(.system(size: 10)).foregroundStyle(.secondary)
-                        Text(path).font(.system(size: 11)).lineLimit(1).truncationMode(.middle)
+                        Image(systemName: "folder").foregroundStyle(.secondary)
+                        Text(path).lineLimit(1).truncationMode(.middle)
                         Spacer(minLength: 0)
                         Button {
                             store.removeScanRoot(path)
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(.tertiary)
-                                .frame(width: 22, height: 22)
-                                .contentShape(Rectangle())
                         }
-                        .buttonStyle(.hitFull)
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.tertiary)
                         .help("Remove folder")
                     }
-                    .padding(.leading, 8).padding(.trailing, 3).padding(.vertical, 3)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(Theme.surfaceSecondary))
+                    .font(.callout)
+                    .padding(.vertical, 5)
                 }
             }
 
@@ -41,12 +38,8 @@ struct SettingsPopover: View {
                     chooseFolder()
                 } label: {
                     Label("Add folder…", systemImage: "plus")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
-                        .padding(.vertical, 4).padding(.trailing, 6)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.hitFull)
+                .buttonStyle(.link)
 
                 Spacer()
 
@@ -54,24 +47,20 @@ struct SettingsPopover: View {
                     store.refreshCurrent()
                 } label: {
                     Label("Rescan", systemImage: "arrow.clockwise")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
-                        .padding(.vertical, 4).padding(.leading, 6)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.hitFull)
+                .buttonStyle(.link)
             }
+            .font(.callout)
 
-            Divider().overlay(Theme.borderSoft)
+            Divider()
 
             HStack(spacing: 6) {
-                Text("New clones go to")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.secondary)
+                Text("New clones go to").foregroundStyle(.secondary)
                 Text(store.state.workspaceRootPath.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                    .font(.system(size: 10.5, weight: .semibold))
+                    .fontWeight(.medium)
                     .lineLimit(1).truncationMode(.middle)
             }
+            .font(.caption)
         }
         .padding(14)
         .frame(width: 300)

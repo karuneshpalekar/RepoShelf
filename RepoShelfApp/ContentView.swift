@@ -25,17 +25,15 @@ enum ActiveSheet: Identifiable, Equatable {
     }
 }
 
+@MainActor
 struct ContentView: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var panelState: PanelState
     @AppStorage("appearanceMode") private var appearanceRaw = AppearanceMode.system.rawValue
 
-    @State private var tab: ShelfTab = .repos
     @State private var query = ""
     @State private var clonedOnly = false
-    @State private var showAccountMenu = false
     @State private var showSettings = false
-    @State private var activeSheet: ActiveSheet?
 
     private var appearance: AppearanceMode {
         AppearanceMode(rawValue: appearanceRaw) ?? .system
@@ -49,19 +47,20 @@ struct ContentView: View {
                 VStack(spacing: 0) {
                     header
                     tabBar
-                    Divider().overlay(Theme.borderSoft)
+                    Divider()
                     content
-                    Divider().overlay(Theme.borderSoft)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .modifier(FadeIn())
+                        .id(panelState.tab)
+                    Divider()
                     footer
                 }
                 overlays
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.panelBackground)
-        .tint(Theme.accent)
+        .background(.background)
         .preferredColorScheme(appearance.colorScheme)
-        .font(.system(size: 12))
     }
 
     // MARK: Header
@@ -71,13 +70,11 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 7) {
                     Image(systemName: "square.grid.2x2.fill")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.accent)
-                    Text("RepoShelf")
-                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.accentColor)
+                    Text("RepoShelf").font(.headline)
                 }
                 Text("Pull projects from GitHub only when you need them")
-                    .font(.system(size: 11))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
@@ -85,36 +82,31 @@ struct ContentView: View {
 
             accountSwitcher
 
-            Button(action: cycleAppearance) {
-                HeaderIconLabel(systemName: appearance.icon, size: 12)
-            }
-            .buttonStyle(.hitFull)
-            .help("Appearance: \(appearance.label)")
+            AppearanceToggle()
 
             Button {
                 showSettings.toggle()
             } label: {
-                HeaderIconLabel(systemName: "slider.horizontal.3", size: 12)
+                Image(systemName: "slider.horizontal.3")
             }
-            .buttonStyle(.hitFull)
+            .buttonStyle(.borderless)
             .help("Scan folders & settings")
             .popover(isPresented: $showSettings, arrowEdge: .bottom) {
                 SettingsPopover().environmentObject(store)
             }
 
             Button {
-                panelState.isCollapsed = true
+                withAnimation(Motion.swap) { panelState.isCollapsed = true }
             } label: {
-                HeaderIconLabel(systemName: "arrow.down.right.and.arrow.up.left", size: 11)
+                Image(systemName: "arrow.down.right.and.arrow.up.left")
             }
-            .buttonStyle(.hitFull)
+            .buttonStyle(.borderless)
             .help("Collapse to pill")
         }
         .padding(.horizontal, 14)
         .padding(.top, 14)
         .padding(.bottom, 12)
         .background(DragHandle())
-        .overlay(alignment: .bottom) { Divider().overlay(Theme.borderSoft) }
     }
 
     private var accountSwitcher: some View {
@@ -127,78 +119,51 @@ struct ContentView: View {
                 }
             }
             Divider()
-            Button("Add account…") { activeSheet = .addAccount }
+            Button("Add account…") { panelState.activeSheet = .addAccount }
         } label: {
-            HStack(spacing: 6) {
-                AccountAvatar(login: store.activeLogin, size: 16)
-                Text(store.activeLogin.isEmpty ? "No account" : store.activeLogin)
-                    .font(.system(size: 11, weight: .semibold))
-                    .lineLimit(1)
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .frame(maxWidth: 128)
-            .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
-            .contentShape(Rectangle())
+            Label(store.activeLogin.isEmpty ? "No account" : store.activeLogin, systemImage: "person.crop.circle.fill")
+                .foregroundStyle(store.activeLogin.isEmpty ? AnyShapeStyle(.secondary) : AnyShapeStyle(AccountPalette.color(store.activeLogin)))
+                .lineLimit(1)
         }
         .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private func cycleAppearance() {
-        let all = AppearanceMode.allCases
-        let idx = all.firstIndex(of: appearance) ?? 0
-        appearanceRaw = all[(idx + 1) % all.count].rawValue
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .frame(maxWidth: 140)
+        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 7))
     }
 
     // MARK: Tabs
 
     private var tabBar: some View {
-        HStack(spacing: 4) {
+        Picker("", selection: $panelState.tab.animation(Motion.screen)) {
             ForEach(ShelfTab.allCases) { item in
-                Button {
-                    tab = item
-                } label: {
-                    Text(item.rawValue)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(tab == item ? Color.primary : Color.secondary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            UnevenRoundedRectangle(topLeadingRadius: 7, topTrailingRadius: 7)
-                                .fill(tab == item ? Theme.panelBackground : .clear)
-                        )
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.hitFull)
+                Text(item.rawValue).tag(item)
             }
-            Spacer(minLength: 0)
         }
+        .pickerStyle(.segmented)
+        .labelsHidden()
         .padding(.horizontal, 14)
-        .padding(.top, 10)
+        .padding(.bottom, 10)
     }
 
     // MARK: Content
 
     @ViewBuilder
     private var content: some View {
-        switch tab {
+        switch panelState.tab {
         case .repos:
             ReposView(
                 query: $query,
                 clonedOnly: $clonedOnly,
-                onClone: { row in activeSheet = .clone(row.id) },
-                onAddRepo: { activeSheet = .addRepo }
+                onClone: { row in panelState.activeSheet = .clone(row.id) },
+                onAddRepo: { panelState.activeSheet = .addRepo }
             )
         case .publish:
-            PublishView(onPublish: { activeSheet = .publish($0.path) })
+            PublishView(onPublish: { panelState.activeSheet = .publish($0.path) })
         case .cleanup:
             CleanupView()
         case .accounts:
-            AccountsView(onAddAccount: { activeSheet = .addAccount })
+            AccountsView(onAddAccount: { panelState.activeSheet = .addAccount })
         case .activity:
             ActivityView()
         }
@@ -208,18 +173,8 @@ struct ContentView: View {
 
     private var footer: some View {
         HStack(spacing: 10) {
-            GeometryReader { geo in
-                let total = max(store.workspaceBytes + store.freeDiskBytes, 1)
-                let usedFrac = 0.62
-                let wsFrac = min(0.30, Double(store.workspaceBytes) / Double(total) + 0.02)
-                HStack(spacing: 0) {
-                    Rectangle().fill(Theme.border).frame(width: geo.size.width * usedFrac)
-                    Rectangle().fill(Theme.accent).frame(width: geo.size.width * wsFrac)
-                    Rectangle().fill(Theme.borderSoft)
-                }
-                .clipShape(Capsule())
-            }
-            .frame(height: 6)
+            WorkspaceBar(used: store.workspaceBytes, free: store.freeDiskBytes)
+                .frame(height: 6)
 
             HStack(spacing: 4) {
                 if store.isScanning || store.isLoadingRepos {
@@ -227,46 +182,60 @@ struct ContentView: View {
                 }
                 Text("workspace ")
                     .foregroundStyle(.secondary)
-                + Text(Formatting.size(bytes: store.workspaceBytes)).fontWeight(.bold)
+                + Text(Formatting.size(bytes: store.workspaceBytes)).fontWeight(.semibold).monospacedDigit()
                 + Text(" · \(Formatting.size(bytes: store.freeDiskBytes)) free").foregroundStyle(.secondary)
             }
-            .font(.system(size: 10.5))
+            .font(.caption)
             .fixedSize()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
-        .background(Theme.surfaceSecondary)
+        .background(.bar)
     }
 
     // MARK: Overlays (sheets rendered manually — the panel is borderless)
 
     @ViewBuilder
     private var overlays: some View {
-        if let activeSheet {
+        if let activeSheet = panelState.activeSheet {
             Color.black.opacity(0.28).ignoresSafeArea()
-                .onTapGesture { self.activeSheet = nil }
+                .onTapGesture { panelState.activeSheet = nil }
 
             Group {
                 switch activeSheet {
                 case .clone(let slug):
                     if let row = store.rows.first(where: { $0.id == slug }) {
-                        CloneSheet(row: row) { self.activeSheet = nil }
+                        CloneSheet(row: row) { panelState.activeSheet = nil }
                     }
                 case .addRepo:
-                    AddRepoSheet { self.activeSheet = nil }
+                    AddRepoSheet { panelState.activeSheet = nil }
                 case .addAccount:
-                    AddAccountSheet { self.activeSheet = nil }
+                    AddAccountSheet { panelState.activeSheet = nil }
                 case .publish(let path):
-                    PublishSheet(folderPath: path) { self.activeSheet = nil }
+                    PublishSheet(folderPath: path) { panelState.activeSheet = nil }
                 }
             }
             .padding(22)
             .transition(.opacity)
+            .animation(Motion.swap, value: panelState.activeSheet)
         }
     }
 }
 
 // MARK: - Shared bits
+
+/// Fades a screen in when it appears — the same technique DevSweep uses in
+/// place of a removal transition (which fights NavigationSplitView there;
+/// harmless here, but keeping one Motion vocabulary app-to-app).
+struct FadeIn: ViewModifier {
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown ? 1 : 0)
+            .onAppear { withAnimation(Motion.screen) { shown = true } }
+    }
+}
 
 struct AccountAvatar: View {
     let login: String
@@ -274,13 +243,37 @@ struct AccountAvatar: View {
 
     var body: some View {
         Circle()
-            .fill(Theme.accountColor(login))
+            .fill(AccountPalette.color(login))
             .frame(width: size, height: size)
             .overlay(
                 Text(login.isEmpty ? "?" : String(login.prefix(1)).uppercased())
                     .font(.system(size: size * 0.55, weight: .bold))
                     .foregroundStyle(.white)
             )
+    }
+}
+
+/// Free / workspace / other-used bar, same shape as DevSweep's DiskBar.
+struct WorkspaceBar: View {
+    let used: Int64
+    let free: Int64
+    var height: CGFloat = 6
+
+    var body: some View {
+        GeometryReader { geo in
+            let total = max(Double(used) + Double(free), 1)
+            let otherFrac = min(0.62, 1 - Double(used) / total)
+            let usedFrac = min(0.30, Double(used) / total + 0.02)
+            HStack(spacing: 0) {
+                Rectangle().fill(.secondary.opacity(0.6)).frame(width: geo.size.width * otherFrac)
+                Rectangle().fill(Color.accentColor).frame(width: geo.size.width * usedFrac)
+                Rectangle().fill(.quaternary)
+            }
+            .clipShape(Capsule())
+        }
+        .frame(height: height)
+        .accessibilityElement()
+        .accessibilityLabel("\(Formatting.size(bytes: used)) workspace, \(Formatting.size(bytes: free)) free")
     }
 }
 
@@ -291,74 +284,46 @@ struct CompactPillView: View {
     var body: some View {
         HStack(spacing: 10) {
             ZStack {
-                Circle().fill(Theme.accent.gradient).frame(width: 34, height: 34)
+                Circle().fill(Color.accentColor).frame(width: 34, height: 34)
                 Image(systemName: "tray.full.fill")
-                    .font(.system(size: 13))
                     .foregroundStyle(.white)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(store.localRepos.count) on disk")
-                    .font(.system(size: 12, weight: .bold))
+                Text("\(store.localRepos.count) on disk").fontWeight(.semibold)
                 Text("\(Formatting.size(bytes: store.freeDiskBytes)) free")
-                    .font(.system(size: 11))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
             Image(systemName: "arrow.up.left.and.arrow.down.right")
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Exact size, not maxWidth/maxHeight: .infinity: when NSHostingView
+        // queries this view's ideal size with no proposed size to expand
+        // into (which it does for window auto-sizing), "infinity" resolves
+        // to the content's own natural size instead of the window's, and
+        // the window silently resizes to match. A concrete frame matching
+        // FloatingPanel.collapsedSize removes that ambiguity.
+        .frame(width: FloatingPanel.collapsedSize.width, height: FloatingPanel.collapsedSize.height)
         .background(DragHandle())
-        .contentShape(Rectangle())
-        .onTapGesture { panelState.isCollapsed = false }
+        .background(.background)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.separator))
+        .fullyClickable()
+        .onTapGesture { withAnimation(Motion.swap) { panelState.isCollapsed = false } }
     }
 }
 
-/// A boxed icon used in the toolbar header.
-struct HeaderIconLabel: View {
-    let systemName: String
-    var size: CGFloat = 12
-
+struct ErrorBanner: View {
+    let message: String
     var body: some View {
-        Image(systemName: systemName)
-            .font(.system(size: size))
-            .frame(width: 24, height: 24)
-            .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border))
-            .contentShape(Rectangle())
-    }
-}
-
-/// A small pill button used for row actions — the whole 26×26 box is clickable.
-struct IconActionButton: View {
-    let systemName: String
-    var tint: Color = .secondary
-    var borderColor: Color = Theme.border
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(tint)
-                .frame(width: 26, height: 26)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Theme.surface))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(borderColor))
-                .contentShape(Rectangle())
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            Text(message).font(.caption).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.hitFull)
-    }
-}
-
-struct EmptyHint: View {
-    let text: String
-    var body: some View {
-        Text(text)
-            .font(.system(size: 11.5))
-            .foregroundStyle(.tertiary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
+        .padding(10)
+        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
     }
 }

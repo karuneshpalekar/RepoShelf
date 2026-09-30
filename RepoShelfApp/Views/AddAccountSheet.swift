@@ -11,9 +11,9 @@ struct AddAccountSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 11) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Add a GitHub account").font(.system(size: 13.5, weight: .bold))
+                Text("Add a GitHub account").font(.title3.weight(.semibold))
                 Text("Opens `gh auth login` in Terminal. These fields set the commit identity for its clones — you can also edit them later on the Accounts tab.")
-                    .font(.system(size: 10.5))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -25,14 +25,14 @@ struct AddAccountSheet: View {
             }
 
             Text("After you finish signing in in Terminal, hit Refresh in the menu-bar menu and the account appears here.")
-                .font(.system(size: 10))
+                .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack {
                 Spacer()
-                SheetButton(title: "Cancel", action: dismiss)
-                SheetButton(title: "Run gh auth login", kind: .primary) {
+                Button("Cancel", action: dismiss).keyboardShortcut(.cancelAction)
+                Button("Run gh auth login") {
                     let login = username.trimmingCharacters(in: .whitespaces)
                     if !login.isEmpty {
                         store.setIdentity(GitIdentity(name: name, email: email), for: login)
@@ -40,11 +40,14 @@ struct AddAccountSheet: View {
                     store.openTerminalForLogin()
                     dismiss()
                 }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
             }
         }
         .padding(16)
         .frame(width: 400)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.surface))
+        .background(.background, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.separator))
         .shadow(radius: 24, y: 8)
     }
 }
